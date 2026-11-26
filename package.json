@@ -1,0 +1,17 @@
+{
+  "name": "mw-mylove",
+  "version": "1.0.0",
+  "description": "Flagship Public Web Portal for A-L-L-A-H.COM & MoonWitness Sovereign Ecosystem",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "dev": "bun --watch src/index.ts",
+    "test": "bun test",
+    "typecheck": "bun x tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.8.2"
+  }
+}
