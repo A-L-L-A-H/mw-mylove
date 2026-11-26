@@ -1,3 +1,9 @@
+import {
+  resolveRidAuthConfig,
+  verifyRidAccessToken,
+  type RidAuthConfig,
+} from "./rid-auth.ts";
+
 export interface EcosystemRepo {
   readonly id: string;
   readonly repo: string;
@@ -22,6 +28,7 @@ export interface PortalConfig {
   readonly studioUrl: string;
   readonly upstreamTimeoutMs: number;
   readonly fetcher: typeof fetch;
+  readonly ridAuth: RidAuthConfig;
 }
 
 export const AQEL_DISCLAIMER = "computational_candidate · not authoritative tafsir";
@@ -212,6 +219,7 @@ export function resolveConfig(overrides: Partial<PortalConfig> = {}): PortalConf
     studioUrl: (overrides.studioUrl ?? process.env.MW_STUDIO_URL ?? "http://mw-studio:4470").replace(/\/+$/, ""),
     upstreamTimeoutMs: overrides.upstreamTimeoutMs ?? 3000,
     fetcher: overrides.fetcher ?? fetch,
+    ridAuth: resolveRidAuthConfig(overrides.ridAuth),
   };
 }
 
@@ -780,6 +788,27 @@ export async function handleRequest(
       compliance: COMPLIANCE_STANDARDS,
       timestamp: new Date().toISOString(),
     });
+  }
+
+  if (pathname === "/api/auth/session") {
+    const authHeader = request.headers.get("authorization");
+    if (!authHeader || authHeader.trim().length === 0) {
+      return jsonResponse({ authenticated: false }, 200);
+    }
+    const bearerMatch = /^Bearer\s+(.+)$/i.exec(authHeader.trim());
+    if (!bearerMatch || !bearerMatch[1]) {
+      return jsonResponse(
+        { authenticated: false, error: "Malformed Authorization header; expected Bearer token" },
+        401,
+      );
+    }
+    try {
+      const session = await verifyRidAccessToken(bearerMatch[1], config.ridAuth);
+      return jsonResponse(session, 200);
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : "Invalid mw-rid access token";
+      return jsonResponse({ authenticated: false, error: reason }, 401);
+    }
   }
 
   if (pathname === "/api/ecosystem") {

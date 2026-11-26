@@ -13,5 +13,8 @@
   "devDependencies": {
     "@types/bun": "latest",
     "typescript": "^5.8.2"
+  },
+  "dependencies": {
+    "jose": "^6.2.18"
   }
 }
