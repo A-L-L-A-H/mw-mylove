@@ -19,8 +19,30 @@ export interface PortalConfig {
   readonly nexusUrl: string;
   readonly loreUrl: string;
   readonly echoUrl: string;
+  readonly studioUrl: string;
   readonly upstreamTimeoutMs: number;
   readonly fetcher: typeof fetch;
+}
+
+export const AQEL_DISCLAIMER = "computational_candidate · not authoritative tafsir";
+export const MTIME_PROFILE_BADGE = "Software Profile · Not Religious Authority";
+
+const CAN_0011_SACRED_SUBJECT_RE =
+  /\b(allah|god|prophet|muhammad|mohammed|nabi|rasul|messenger|jesus|isa|moses|musa|abraham|ibrahim|noah|nuh|adam|david|dawud|solomon|sulaiman|joseph|yusuf|gabriel|jibril|angel|angels)\b/i;
+
+const CAN_0011_DEPICTION_RE =
+  /\b(depict|depiction|portrait|face|likeness|statue|idol|figurative|anthropomorphic|caricature|cartoon|illustrat(?:e|ion)|draw(?:ing)?|paint(?:ing)?|photo(?:graph)?|render\s+(?:a\s+)?(?:face|person|figure|body|human))\b/i;
+
+export function checkCan0011Violation(input: unknown): { blocked: boolean; reason: string | null } {
+  const serialized = typeof input === "string" ? input : JSON.stringify(input ?? "");
+  if (CAN_0011_SACRED_SUBJECT_RE.test(serialized) && CAN_0011_DEPICTION_RE.test(serialized)) {
+    return {
+      blocked: true,
+      reason:
+        "CAN-0011 policy violation: visual or figurative depiction of Allah, Prophets, or Angels is strictly prohibited. Use typographic, geometric, or celestial motifs only.",
+    };
+  }
+  return { blocked: false, reason: null };
 }
 
 export const COMPLIANCE_STANDARDS = [
@@ -187,6 +209,7 @@ export function resolveConfig(overrides: Partial<PortalConfig> = {}): PortalConf
     nexusUrl: (overrides.nexusUrl ?? process.env.MW_NEXUS_URL ?? "http://mw-nexus:4430").replace(/\/+$/, ""),
     loreUrl: (overrides.loreUrl ?? process.env.MW_LORE_URL ?? "http://mw-lore:4450").replace(/\/+$/, ""),
     echoUrl: (overrides.echoUrl ?? process.env.MW_ECHO_URL ?? "http://mw-echo:4310").replace(/\/+$/, ""),
+    studioUrl: (overrides.studioUrl ?? process.env.MW_STUDIO_URL ?? "http://mw-studio:4470").replace(/\/+$/, ""),
     upstreamTimeoutMs: overrides.upstreamTimeoutMs ?? 3000,
     fetcher: overrides.fetcher ?? fetch,
   };
@@ -202,12 +225,22 @@ interface UpstreamProbeResult {
 async function fetchUpstreamJson(
   targetUrl: string,
   config: PortalConfig,
+  options: { method?: "GET" | "POST"; body?: unknown } = {},
 ): Promise<UpstreamProbeResult> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), config.upstreamTimeoutMs);
+  const method = options.method ?? "GET";
   try {
+    const headers: Record<string, string> = { Accept: "application/json, image/svg+xml" };
+    let serializedBody: string | undefined;
+    if (method === "POST" && options.body !== undefined) {
+      headers["Content-Type"] = "application/json";
+      serializedBody = JSON.stringify(options.body);
+    }
     const upstreamResponse = await config.fetcher(targetUrl, {
-      headers: { Accept: "application/json" },
+      method,
+      headers,
+      body: serializedBody,
       signal: controller.signal,
     });
     if (!upstreamResponse.ok) {
@@ -218,7 +251,10 @@ async function fetchUpstreamJson(
         reason: `Upstream returned HTTP ${upstreamResponse.status}`,
       };
     }
-    const parsedBody = await upstreamResponse.json();
+    const contentType = upstreamResponse.headers.get("content-type") ?? "";
+    const parsedBody = contentType.includes("image/svg+xml")
+      ? { svg: await upstreamResponse.text() }
+      : await upstreamResponse.json();
     return {
       status: "online",
       httpStatus: upstreamResponse.status,
@@ -458,6 +494,43 @@ export function renderPortalHtml(): string {
       <div id="nexus-results" class="status-box">Connecting to live upstream mw-nexus...</div>
     </section>
 
+    <section id="aqel-section">
+      <h2>AQEL Arabic Lexical &amp; Particle Inspector</h2>
+      <p class="section-note">
+        <span class="badge badge-advisory">${AQEL_DISCLAIMER}</span>
+      </p>
+      <div class="search-bar">
+        <input id="aqel-input" type="text" dir="rtl" placeholder="أدخل نصًا عربيًا للتحليل الصرفي والنحوي (live upstream mw-corpus)..." />
+        <button id="aqel-analyze-btn" type="button">Analyze</button>
+      </div>
+      <div id="aqel-results" class="status-box">Enter Arabic text and click Analyze to query live upstream mw-corpus/api/aqel/analyze.</div>
+    </section>
+
+    <section id="mtime-section">
+      <h2>Antikythera M-Time Astronomical / Hijri-UTC Clock</h2>
+      <p class="section-note">
+        <span class="badge badge-advisory">${MTIME_PROFILE_BADGE}</span>
+      </p>
+      <div class="search-bar">
+        <input id="mtime-input" type="text" placeholder="ISO-8601 UTC timestamp (e.g. 2026-11-26T12:00:00Z) — blank for current UTC" />
+        <button id="mtime-convert-btn" type="button">Convert</button>
+      </div>
+      <div id="mtime-results" class="status-box">Connecting to live upstream mw-nexus/api/time/convert...</div>
+    </section>
+
+    <section id="poster-section">
+      <h2>GOD PROMISE Typographic SVG Card Previewer</h2>
+      <p class="section-note">
+        <span class="badge">CAN-0011 Enforced Locally: Typographic &amp; Geometric Celestial SVG Only — Zero Figurative Depiction</span>
+      </p>
+      <div class="search-bar">
+        <input id="poster-title" type="text" placeholder="Card title (e.g. Surah Al-Inshirah 94:5)" />
+        <input id="poster-subtitle" type="text" placeholder="Typographic verse or geometric theme..." />
+        <button id="poster-preview-btn" type="button">Preview SVG</button>
+      </div>
+      <div id="poster-results" class="status-box">Enter typographic card text to preview via live upstream mw-studio/api/render/poster.</div>
+    </section>
+
     <section id="lore-radar-section">
       <h2>Chronological Lore &amp; Sovereign Radar</h2>
       <div class="grid">
@@ -528,13 +601,80 @@ export function renderPortalHtml(): string {
           : JSON.stringify(radarResp.events);
     }
 
+    async function analyzeAqel(text) {
+      const box = document.getElementById("aqel-results");
+      if (!text || !text.trim()) {
+        box.textContent = "Enter Arabic text to analyze (computational_candidate · not authoritative tafsir).";
+        return;
+      }
+      const response = await fetch("/api/aqel/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: text.trim() }),
+      });
+      const payload = await response.json();
+      if (payload.status === "offline") {
+        box.textContent = "Upstream mw-corpus offline (" + payload.message + "). Zero fake data displayed.";
+        return;
+      }
+      box.textContent = JSON.stringify(payload.analysis);
+    }
+
+    async function convertMTime(tsValue) {
+      const box = document.getElementById("mtime-results");
+      const queryParam = tsValue && tsValue.trim() ? "?ts=" + encodeURIComponent(tsValue.trim()) : "";
+      const response = await fetch("/api/time/convert" + queryParam);
+      const payload = await response.json();
+      if (payload.status === "offline") {
+        box.textContent = "Upstream mw-nexus offline (" + payload.message + "). Zero fake data displayed.";
+        return;
+      }
+      box.textContent = JSON.stringify(payload.conversion);
+    }
+
+    async function previewPoster(title, subtitle) {
+      const box = document.getElementById("poster-results");
+      const response = await fetch("/api/poster/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: title || "GOD PROMISE", subtitle: subtitle || "" }),
+      });
+      const payload = await response.json();
+      if (response.status === 422 || payload.blocked) {
+        box.textContent = "Blocked by CAN-0011: " + payload.reason;
+        return;
+      }
+      if (payload.status === "offline") {
+        box.textContent = "Upstream mw-studio offline (" + payload.message + "). Zero fake data displayed.";
+        return;
+      }
+      if (payload.poster && typeof payload.poster.svg === "string") {
+        box.innerHTML = payload.poster.svg;
+        return;
+      }
+      box.textContent = JSON.stringify(payload.poster);
+    }
+
     document.getElementById("corpus-search-btn").addEventListener("click", () => {
       searchCorpus(document.getElementById("corpus-query").value);
+    });
+    document.getElementById("aqel-analyze-btn").addEventListener("click", () => {
+      analyzeAqel(document.getElementById("aqel-input").value);
+    });
+    document.getElementById("mtime-convert-btn").addEventListener("click", () => {
+      convertMTime(document.getElementById("mtime-input").value);
+    });
+    document.getElementById("poster-preview-btn").addEventListener("click", () => {
+      previewPoster(
+        document.getElementById("poster-title").value,
+        document.getElementById("poster-subtitle").value,
+      );
     });
 
     loadEcosystem();
     searchCorpus("");
     loadLivePanels();
+    convertMTime("");
   </script>
 </body>
 </html>`;
@@ -546,6 +686,76 @@ export async function handleRequest(
 ): Promise<Response> {
   const url = new URL(request.url);
   const { pathname } = url;
+
+  if (pathname === "/api/aqel/analyze") {
+    if (request.method !== "POST") {
+      return jsonResponse({ error: "Method not allowed" }, 405);
+    }
+    let parsed: { text?: unknown };
+    try {
+      parsed = (await request.json()) as { text?: unknown };
+    } catch {
+      return jsonResponse({ error: "Invalid JSON body" }, 400);
+    }
+    if (typeof parsed.text !== "string" || parsed.text.trim().length === 0) {
+      return jsonResponse({ error: "Field 'text' must be a non-empty string" }, 400);
+    }
+    const targetUrl = `${config.corpusUrl}/api/aqel/analyze`;
+    const probe = await fetchUpstreamJson(targetUrl, config, {
+      method: "POST",
+      body: { text: parsed.text },
+    });
+    return jsonResponse({
+      status: probe.status,
+      upstream: "mw-corpus",
+      epistemicStatus: "computational_candidate",
+      disclaimer: AQEL_DISCLAIMER,
+      advisoryBadge: NON_NORMATIVE_ADVISORY_BADGE,
+      analysis: probe.status === "online" ? probe.payload : null,
+      message: probe.reason ?? "ok",
+    });
+  }
+
+  if (pathname === "/api/poster/preview") {
+    if (request.method !== "POST") {
+      return jsonResponse({ error: "Method not allowed" }, 405);
+    }
+    let parsed: Record<string, unknown>;
+    try {
+      const raw = await request.json();
+      if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+        return jsonResponse({ error: "Request body must be a JSON object" }, 400);
+      }
+      parsed = raw as Record<string, unknown>;
+    } catch {
+      return jsonResponse({ error: "Invalid JSON body" }, 400);
+    }
+    const can0011Check = checkCan0011Violation(parsed);
+    if (can0011Check.blocked) {
+      return jsonResponse(
+        {
+          status: "blocked",
+          blocked: true,
+          code: "CAN-0011",
+          error: "CAN-0011_VIOLATION",
+          reason: can0011Check.reason,
+        },
+        422,
+      );
+    }
+    const targetUrl = `${config.studioUrl}/api/render/poster`;
+    const probe = await fetchUpstreamJson(targetUrl, config, {
+      method: "POST",
+      body: parsed,
+    });
+    return jsonResponse({
+      status: probe.status,
+      upstream: "mw-studio",
+      compliance: "CAN-0011",
+      poster: probe.status === "online" ? probe.payload : null,
+      message: probe.reason ?? "ok",
+    });
+  }
 
   if (request.method !== "GET") {
     return jsonResponse({ error: "Method not allowed" }, 405);
@@ -618,6 +828,20 @@ export async function handleRequest(
       upstream: "mw-lore",
       epistemicLayer: "L4/L7",
       eras: probe.status === "online" ? probe.payload : [],
+      message: probe.reason ?? "ok",
+    });
+  }
+
+  if (pathname === "/api/time/convert") {
+    const ts = url.searchParams.get("ts") ?? new Date().toISOString();
+    const targetUrl = `${config.nexusUrl}/api/time/convert?ts=${encodeURIComponent(ts)}`;
+    const probe = await fetchUpstreamJson(targetUrl, config);
+    return jsonResponse({
+      status: probe.status,
+      upstream: "mw-nexus",
+      profileBadge: MTIME_PROFILE_BADGE,
+      ts,
+      conversion: probe.status === "online" ? probe.payload : null,
       message: probe.reason ?? "ok",
     });
   }

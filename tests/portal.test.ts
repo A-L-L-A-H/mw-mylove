@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import {
+  AQEL_DISCLAIMER,
   ECOSYSTEM_REPOS,
   EPISTEMIC_LAYERS,
+  MTIME_PROFILE_BADGE,
   NON_NORMATIVE_ADVISORY_BADGE,
   handleRequest,
   resolveConfig,
@@ -15,6 +17,7 @@ function makeOfflineConfig(): PortalConfig {
     nexusUrl: "http://127.0.0.1:19992",
     loreUrl: "http://127.0.0.1:19993",
     echoUrl: "http://127.0.0.1:19994",
+    studioUrl: "http://127.0.0.1:19995",
     upstreamTimeoutMs: 250,
     fetcher: (async () => {
       throw new Error("ECONNREFUSED");
@@ -33,6 +36,9 @@ describe("mw-mylove Flagship Web Portal", () => {
     expect(html).toContain("ADR 0005");
     expect(html).toContain(NON_NORMATIVE_ADVISORY_BADGE);
     expect(html).toContain("8-Layer Epistemic");
+    expect(html).toContain(AQEL_DISCLAIMER);
+    expect(html).toContain(MTIME_PROFILE_BADGE);
+    expect(html).toContain("GOD PROMISE Typographic SVG Card Previewer");
     expect(html).not.toContain("<img");
   });
 
@@ -109,5 +115,166 @@ describe("mw-mylove Flagship Web Portal", () => {
     expect(nexusResp.status).toBe(200);
     expect(nexusBody.status).toBe("online");
     expect(nexusBody.domains).toEqual([{ id: "domain-1", label: "Mizan" }]);
+  });
+
+  test("POST /api/aqel/analyze proxies to mw-corpus and handles offline resilience", async () => {
+    let capturedUrl = "";
+    let capturedBody = "";
+    const liveConfig = resolveConfig({
+      corpusUrl: "http://mw-corpus.local:4420",
+      fetcher: (async (url: string | URL | Request, init?: RequestInit) => {
+        capturedUrl = String(url);
+        capturedBody = String(init?.body ?? "");
+        return new Response(
+          JSON.stringify({ tokens: [{ surface: "بسم", root: "س-م-و" }], particles: ["ب"] }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }) as unknown as typeof fetch,
+    });
+
+    const onlineResp = await handleRequest(
+      new Request("http://localhost:4460/api/aqel/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: "بسم الله" }),
+      }),
+      liveConfig,
+    );
+    expect(onlineResp.status).toBe(200);
+    expect(capturedUrl).toBe("http://mw-corpus.local:4420/api/aqel/analyze");
+    expect(JSON.parse(capturedBody)).toEqual({ text: "بسم الله" });
+    const onlineBody = (await onlineResp.json()) as {
+      status: string;
+      disclaimer: string;
+      epistemicStatus: string;
+      analysis: { particles: string[] };
+    };
+    expect(onlineBody.status).toBe("online");
+    expect(onlineBody.epistemicStatus).toBe("computational_candidate");
+    expect(onlineBody.disclaimer).toBe(AQEL_DISCLAIMER);
+    expect(onlineBody.analysis.particles).toEqual(["ب"]);
+
+    const offlineResp = await handleRequest(
+      new Request("http://localhost:4460/api/aqel/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: "الحمد لله" }),
+      }),
+      makeOfflineConfig(),
+    );
+    expect(offlineResp.status).toBe(200);
+    const offlineBody = (await offlineResp.json()) as { status: string; analysis: unknown };
+    expect(offlineBody.status).toBe("offline");
+    expect(offlineBody.analysis).toBeNull();
+
+    const invalidResp = await handleRequest(
+      new Request("http://localhost:4460/api/aqel/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: "   " }),
+      }),
+      makeOfflineConfig(),
+    );
+    expect(invalidResp.status).toBe(400);
+  });
+
+  test("GET /api/time/convert proxies ?ts to mw-nexus with profile stamp and offline resilience", async () => {
+    let capturedUrl = "";
+    const liveConfig = resolveConfig({
+      nexusUrl: "http://mw-nexus.local:4430",
+      fetcher: (async (url: string | URL | Request) => {
+        capturedUrl = String(url);
+        return new Response(
+          JSON.stringify({ utc: "2026-11-26T12:00:00Z", hijri: "1448-06-16", lunarPhase: "waxing" }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }) as unknown as typeof fetch,
+    });
+
+    const onlineResp = await handleRequest(
+      new Request("http://localhost:4460/api/time/convert?ts=2026-11-26T12:00:00Z"),
+      liveConfig,
+    );
+    expect(onlineResp.status).toBe(200);
+    expect(capturedUrl).toBe("http://mw-nexus.local:4430/api/time/convert?ts=2026-11-26T12%3A00%3A00Z");
+    const onlineBody = (await onlineResp.json()) as {
+      status: string;
+      profileBadge: string;
+      conversion: { hijri: string };
+    };
+    expect(onlineBody.status).toBe("online");
+    expect(onlineBody.profileBadge).toBe(MTIME_PROFILE_BADGE);
+    expect(onlineBody.conversion.hijri).toBe("1448-06-16");
+
+    const offlineResp = await handleRequest(
+      new Request("http://localhost:4460/api/time/convert?ts=2026-11-26T12:00:00Z"),
+      makeOfflineConfig(),
+    );
+    expect(offlineResp.status).toBe(200);
+    const offlineBody = (await offlineResp.json()) as { status: string; conversion: unknown; profileBadge: string };
+    expect(offlineBody.status).toBe("offline");
+    expect(offlineBody.conversion).toBeNull();
+    expect(offlineBody.profileBadge).toBe(MTIME_PROFILE_BADGE);
+  });
+
+  test("POST /api/poster/preview enforces CAN-0011 locally, proxies to mw-studio, and handles offline", async () => {
+    let fetchCalled = false;
+    const guardedConfig = resolveConfig({
+      studioUrl: "http://mw-studio.local:4470",
+      fetcher: (async () => {
+        fetchCalled = true;
+        return new Response(
+          JSON.stringify({ svg: "<svg viewBox='0 0 100 100'><text>GOD PROMISE</text></svg>" }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }) as unknown as typeof fetch,
+    });
+
+    const blockedResp = await handleRequest(
+      new Request("http://localhost:4460/api/poster/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "Portrait of Prophet Muhammad", subtitle: "drawing" }),
+      }),
+      guardedConfig,
+    );
+    expect(blockedResp.status).toBe(422);
+    expect(fetchCalled).toBe(false);
+    const blockedBody = (await blockedResp.json()) as { blocked: boolean; code: string; error: string };
+    expect(blockedBody.blocked).toBe(true);
+    expect(blockedBody.code).toBe("CAN-0011");
+    expect(blockedBody.error).toBe("CAN-0011_VIOLATION");
+
+    const allowedResp = await handleRequest(
+      new Request("http://localhost:4460/api/poster/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "Surah Al-Inshirah 94:5", subtitle: "Geometric celestial calligraphy" }),
+      }),
+      guardedConfig,
+    );
+    expect(allowedResp.status).toBe(200);
+    expect(fetchCalled).toBe(true);
+    const allowedBody = (await allowedResp.json()) as {
+      status: string;
+      compliance: string;
+      poster: { svg: string };
+    };
+    expect(allowedBody.status).toBe("online");
+    expect(allowedBody.compliance).toBe("CAN-0011");
+    expect(allowedBody.poster.svg).toContain("<svg");
+
+    const offlineResp = await handleRequest(
+      new Request("http://localhost:4460/api/poster/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "GOD PROMISE", subtitle: "Rub el Hizb gold motif" }),
+      }),
+      makeOfflineConfig(),
+    );
+    expect(offlineResp.status).toBe(200);
+    const offlineBody = (await offlineResp.json()) as { status: string; poster: unknown };
+    expect(offlineBody.status).toBe("offline");
+    expect(offlineBody.poster).toBeNull();
   });
 });
