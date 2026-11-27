@@ -3,6 +3,12 @@ import {
   verifyRidAccessToken,
   type RidAuthConfig,
 } from "./rid-auth.ts";
+import {
+  buildPaasCatalogResponsePayload,
+  buildPricingResponsePayload,
+  buildStatusResponsePayload,
+  type UpstreamTarget,
+} from "./storefront.ts";
 
 export interface EcosystemRepo {
   readonly id: string;
@@ -26,6 +32,7 @@ export interface PortalConfig {
   readonly loreUrl: string;
   readonly echoUrl: string;
   readonly studioUrl: string;
+  readonly cpUrl?: string;
   readonly upstreamTimeoutMs: number;
   readonly fetcher: typeof fetch;
   readonly ridAuth: RidAuthConfig;
@@ -210,6 +217,7 @@ export const ECOSYSTEM_REPOS: readonly EcosystemRepo[] = [
 
 export function resolveConfig(overrides: Partial<PortalConfig> = {}): PortalConfig {
   const rawPort = Number(process.env.MW_MYLOVE_PORT ?? process.env.PORT ?? 4460);
+  const rawCpUrl = overrides.cpUrl ?? process.env.MW_CP_URL ?? "http://mw-cp:4440";
   return {
     port: overrides.port ?? (Number.isFinite(rawPort) && rawPort > 0 ? rawPort : 4460),
     corpusUrl: (overrides.corpusUrl ?? process.env.MW_CORPUS_URL ?? "http://mw-corpus:4420").replace(/\/+$/, ""),
@@ -217,6 +225,7 @@ export function resolveConfig(overrides: Partial<PortalConfig> = {}): PortalConf
     loreUrl: (overrides.loreUrl ?? process.env.MW_LORE_URL ?? "http://mw-lore:4450").replace(/\/+$/, ""),
     echoUrl: (overrides.echoUrl ?? process.env.MW_ECHO_URL ?? "http://mw-echo:4310").replace(/\/+$/, ""),
     studioUrl: (overrides.studioUrl ?? process.env.MW_STUDIO_URL ?? "http://mw-studio:4470").replace(/\/+$/, ""),
+    cpUrl: rawCpUrl.replace(/\/+$/, ""),
     upstreamTimeoutMs: overrides.upstreamTimeoutMs ?? 3000,
     fetcher: overrides.fetcher ?? fetch,
     ridAuth: resolveRidAuthConfig(overrides.ridAuth),
@@ -884,6 +893,38 @@ export async function handleRequest(
       events: probe.status === "online" ? probe.payload : [],
       message: probe.reason ?? "ok",
     });
+  }
+
+  if (pathname === "/pricing") {
+    return jsonResponse(buildPricingResponsePayload(COMPLIANCE_STANDARDS));
+  }
+
+  if (pathname === "/status") {
+    const targets: UpstreamTarget[] = [
+      { id: "mw-corpus", baseUrl: config.corpusUrl },
+      { id: "mw-nexus", baseUrl: config.nexusUrl },
+      { id: "mw-lore", baseUrl: config.loreUrl },
+      { id: "mw-echo", baseUrl: config.echoUrl },
+      { id: "mw-studio", baseUrl: config.studioUrl },
+    ];
+    if (config.cpUrl && config.cpUrl.trim().length > 0) {
+      targets.push({ id: "mw-cp", baseUrl: config.cpUrl });
+    }
+    const payload = await buildStatusResponsePayload(
+      targets,
+      (targetUrl) => fetchUpstreamJson(targetUrl, config),
+    );
+    return jsonResponse(payload);
+  }
+
+  if (pathname === "/paas/catalog") {
+    const payload = await buildPaasCatalogResponsePayload({
+      cpUrl: config.cpUrl,
+      category: url.searchParams.get("category"),
+      query: url.searchParams.get("q"),
+      probeFn: (targetUrl) => fetchUpstreamJson(targetUrl, config),
+    });
+    return jsonResponse(payload);
   }
 
   return jsonResponse({ error: "Not found", path: pathname }, 404);
