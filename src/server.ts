@@ -4,11 +4,27 @@ import {
   type RidAuthConfig,
 } from "./rid-auth.ts";
 import {
+  DEFAULT_USD_TO_IDR_RATE,
+  PRICING_TIERS,
+  buildCheckoutIntentPayload,
   buildPaasCatalogResponsePayload,
   buildPricingResponsePayload,
   buildStatusResponsePayload,
   type UpstreamTarget,
 } from "./storefront.ts";
+import {
+  SlaTracker,
+  buildSlaMizanWidgetPayload,
+  renderSlaMizanWidgetHtml,
+} from "./sla-mizan.ts";
+import {
+  appendAffiliateRef,
+  buildAffiliateSetCookieHeader,
+  buildSchemaOrgJsonLd,
+  buildSitemapXml,
+  resolveAffiliateContext,
+  serializeJsonLdSafe,
+} from "./seo-affiliate.ts";
 
 export interface EcosystemRepo {
   readonly id: string;
@@ -27,6 +43,8 @@ export interface EpistemicLayer {
 
 export interface PortalConfig {
   readonly port: number;
+  readonly publicOrigin: string;
+  readonly usdToIdrRate: number;
   readonly corpusUrl: string;
   readonly nexusUrl: string;
   readonly loreUrl: string;
@@ -36,6 +54,7 @@ export interface PortalConfig {
   readonly upstreamTimeoutMs: number;
   readonly fetcher: typeof fetch;
   readonly ridAuth: RidAuthConfig;
+  readonly slaTracker: SlaTracker;
 }
 
 export const AQEL_DISCLAIMER = "computational_candidate · not authoritative tafsir";
@@ -218,8 +237,12 @@ export const ECOSYSTEM_REPOS: readonly EcosystemRepo[] = [
 export function resolveConfig(overrides: Partial<PortalConfig> = {}): PortalConfig {
   const rawPort = Number(process.env.MW_MYLOVE_PORT ?? process.env.PORT ?? 4460);
   const rawCpUrl = overrides.cpUrl ?? process.env.MW_CP_URL ?? "http://mw-cp:4440";
+  const rawOrigin = overrides.publicOrigin ?? process.env.MW_PUBLIC_ORIGIN ?? "https://a-l-l-a-h.com";
+  const rawUsdToIdr = Number(overrides.usdToIdrRate ?? process.env.MW_USD_TO_IDR_RATE ?? DEFAULT_USD_TO_IDR_RATE);
   return {
     port: overrides.port ?? (Number.isFinite(rawPort) && rawPort > 0 ? rawPort : 4460),
+    publicOrigin: rawOrigin.replace(/\/+$/, ""),
+    usdToIdrRate: Number.isFinite(rawUsdToIdr) && rawUsdToIdr > 0 ? Math.round(rawUsdToIdr) : DEFAULT_USD_TO_IDR_RATE,
     corpusUrl: (overrides.corpusUrl ?? process.env.MW_CORPUS_URL ?? "http://mw-corpus:4420").replace(/\/+$/, ""),
     nexusUrl: (overrides.nexusUrl ?? process.env.MW_NEXUS_URL ?? "http://mw-nexus:4430").replace(/\/+$/, ""),
     loreUrl: (overrides.loreUrl ?? process.env.MW_LORE_URL ?? "http://mw-lore:4450").replace(/\/+$/, ""),
@@ -229,6 +252,7 @@ export function resolveConfig(overrides: Partial<PortalConfig> = {}): PortalConf
     upstreamTimeoutMs: overrides.upstreamTimeoutMs ?? 3000,
     fetcher: overrides.fetcher ?? fetch,
     ridAuth: resolveRidAuthConfig(overrides.ridAuth),
+    slaTracker: overrides.slaTracker ?? new SlaTracker(),
   };
 }
 
@@ -291,24 +315,106 @@ async function fetchUpstreamJson(
   }
 }
 
-function jsonResponse(body: unknown, status = 200): Response {
+function jsonResponse(body: unknown, status = 200, setCookie: string | null = null): Response {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "no-store",
+    "X-Content-Type-Options": "nosniff",
+  };
+  if (setCookie) {
+    headers["Set-Cookie"] = setCookie;
+  }
   return new Response(JSON.stringify(body), {
     status,
-    headers: {
-      "Content-Type": "application/json; charset=utf-8",
-      "Cache-Control": "no-store",
-      "X-Content-Type-Options": "nosniff",
-    },
+    headers,
   });
 }
 
-export function renderPortalHtml(): string {
+function htmlResponse(html: string, status = 200, setCookie: string | null = null): Response {
+  const headers: Record<string, string> = {
+    "Content-Type": "text/html; charset=utf-8",
+    "X-Content-Type-Options": "nosniff",
+  };
+  if (setCookie) {
+    headers["Set-Cookie"] = setCookie;
+  }
+  return new Response(html, {
+    status,
+    headers,
+  });
+}
+
+function xmlResponse(xml: string, status = 200, setCookie: string | null = null): Response {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/xml; charset=utf-8",
+    "Cache-Control": "no-store",
+    "X-Content-Type-Options": "nosniff",
+  };
+  if (setCookie) {
+    headers["Set-Cookie"] = setCookie;
+  }
+  return new Response(xml, {
+    status,
+    headers,
+  });
+}
+
+function escapeHtmlAttr(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function getUpstreamTargets(config: PortalConfig): UpstreamTarget[] {
+  const targets: UpstreamTarget[] = [
+    { id: "mw-corpus", baseUrl: config.corpusUrl },
+    { id: "mw-nexus", baseUrl: config.nexusUrl },
+    { id: "mw-lore", baseUrl: config.loreUrl },
+    { id: "mw-echo", baseUrl: config.echoUrl },
+    { id: "mw-studio", baseUrl: config.studioUrl },
+  ];
+  if (config.cpUrl && config.cpUrl.trim().length > 0) {
+    targets.push({ id: "mw-cp", baseUrl: config.cpUrl });
+  }
+  return targets;
+}
+
+export interface RenderPortalHtmlOptions {
+  readonly origin?: string;
+  readonly usdToIdrRate?: number;
+  readonly affiliateRef?: string | null;
+}
+
+export function renderPortalHtml(options: RenderPortalHtmlOptions = {}): string {
+  const origin = (options.origin ?? "https://a-l-l-a-h.com").replace(/\/+$/, "");
+  const usdToIdrRate = options.usdToIdrRate ?? DEFAULT_USD_TO_IDR_RATE;
+  const affiliateRef = options.affiliateRef ?? null;
+  const schemaOrg = buildSchemaOrgJsonLd({
+    origin,
+    tiers: PRICING_TIERS,
+    fxRateIdrPerUsd: usdToIdrRate,
+    compliance: COMPLIANCE_STANDARDS,
+  });
+  const jsonLdScript = `<script type="application/ld+json">${serializeJsonLdSafe(schemaOrg)}</script>`;
+  const affiliateMeta = affiliateRef
+    ? `\n  <meta name="mw-affiliate-ref" content="${escapeHtmlAttr(affiliateRef)}" />`
+    : "";
+  const pricingUsdHref = escapeHtmlAttr(appendAffiliateRef("/pricing?currency=USD", affiliateRef));
+  const pricingIdrHref = escapeHtmlAttr(appendAffiliateRef("/pricing?currency=IDR", affiliateRef));
+  const catalogHref = escapeHtmlAttr(appendAffiliateRef("/paas/catalog", affiliateRef));
+  const slaWidgetHref = escapeHtmlAttr(appendAffiliateRef("/widgets/sla-mizan", affiliateRef));
+  const statusHref = escapeHtmlAttr(appendAffiliateRef("/status", affiliateRef));
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>A-L-L-A-H.COM — MoonWitness Sovereign Ecosystem</title>
+  <title>A-L-L-A-H.COM — MoonWitness Sovereign Ecosystem</title>${affiliateMeta}
+  ${jsonLdScript}
   <style>
     :root {
       --bg-void: #06090c;
@@ -487,6 +593,14 @@ export function renderPortalHtml(): string {
       <span class="badge badge-emerald">ADR 0005: 8-Layer Epistemic Separation</span>
       <span class="badge badge-advisory">${NON_NORMATIVE_ADVISORY_BADGE}</span>
     </div>
+    <nav class="compliance-strip" aria-label="Storefront and Transparency Links">
+      <a class="badge" href="${pricingUsdHref}">Pricing (USD)</a>
+      <a class="badge badge-emerald" href="${pricingIdrHref}">Pricing (IDR / QRIS)</a>
+      <a class="badge" href="${catalogHref}">PaaS Catalog</a>
+      <a class="badge badge-emerald" href="${slaWidgetHref}">30d SLA &amp; Sharia Mizan</a>
+      <a class="badge" href="${statusHref}">Live Status</a>
+      <a class="badge" href="/sitemap.xml">Sitemap XML</a>
+    </nav>
   </header>
 
   <main>
@@ -560,6 +674,39 @@ export function renderPortalHtml(): string {
           <div id="radar-results" class="status-box">Connecting to live upstream mw-echo...</div>
         </div>
       </div>
+    </section>
+
+    <section id="pricing-section">
+      <h2>Sovereign PaaS Pricing (USD / IDR &amp; QRIS / VA)</h2>
+      <p class="section-note">
+        Riba-free, gharar-free transparent monthly billing (Ujrah / Ijarah · Zero late-payment penalty). Toggle currency between USD and IDR and generate QRIS or Virtual Account checkout payloads.
+      </p>
+      <div class="search-bar">
+        <button id="currency-usd-btn" type="button">USD ($)</button>
+        <button id="currency-idr-btn" type="button">IDR (Rp / QRIS)</button>
+        <select id="checkout-tier">
+          <option value="starter">Starter ($19/mo)</option>
+          <option value="pro">Pro ($79/mo)</option>
+          <option value="enterprise">Enterprise ($399/mo)</option>
+        </select>
+        <select id="checkout-method">
+          <option value="QRIS">QRIS (EMVCo)</option>
+          <option value="VA_BSI">VA Bank Syariah Indonesia (BSI)</option>
+          <option value="VA_BCA">VA BCA</option>
+          <option value="VA_MANDIRI">VA Mandiri</option>
+        </select>
+        <button id="checkout-intent-btn" type="button">Generate Checkout Intent</button>
+      </div>
+      <div id="pricing-tiers-grid" class="grid"></div>
+      <div id="checkout-intent-results" class="status-box" style="margin-top: 1rem;">Select a tier and payment method to generate a QRIS / VA checkout intent.</div>
+    </section>
+
+    <section id="sla-mizan-section">
+      <h2>30d SLA &amp; Sharia Mizan Transparency Widget</h2>
+      <p class="section-note">
+        Real observed 30-day upstream probe telemetry paired with CAN-0011..0014 and ADR-0005 Sharia Mizan compliance guarantees. <a href="${slaWidgetHref}" style="color: var(--emerald-soft);">Open standalone widget</a>
+      </p>
+      <div id="sla-mizan-results" class="status-box">Loading live 30d SLA &amp; Sharia Mizan status...</div>
     </section>
 
     <section id="ecosystem-section">
@@ -672,6 +819,48 @@ export function renderPortalHtml(): string {
       box.textContent = JSON.stringify(payload.poster);
     }
 
+    let activeCurrency = "USD";
+    const activeAffiliateRef = (document.querySelector('meta[name="mw-affiliate-ref"]') || {}).content || "";
+
+    async function loadPricing(currency) {
+      activeCurrency = currency;
+      const grid = document.getElementById("pricing-tiers-grid");
+      const query = "/pricing?currency=" + encodeURIComponent(currency) + (activeAffiliateRef ? "&ref=" + encodeURIComponent(activeAffiliateRef) : "");
+      const response = await fetch(query);
+      const payload = await response.json();
+      grid.innerHTML = payload.tiers.map((tier) =>
+        '<div class="card"><h3>' + tier.name + ' — ' + tier.displayPrice + '/mo</h3><p>' + tier.summary + '</p></div>'
+      ).join("");
+    }
+
+    async function generateCheckoutIntent() {
+      const box = document.getElementById("checkout-intent-results");
+      const tier = document.getElementById("checkout-tier").value;
+      const paymentMethod = document.getElementById("checkout-method").value;
+      const response = await fetch("/api/pricing/checkout-intent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tier,
+          currency: activeCurrency,
+          paymentMethod,
+          ref: activeAffiliateRef || undefined,
+        }),
+      });
+      const payload = await response.json();
+      box.textContent = JSON.stringify(payload);
+    }
+
+    async function loadSlaMizanWidget() {
+      const box = document.getElementById("sla-mizan-results");
+      const response = await fetch("/api/status/widget");
+      const payload = await response.json();
+      const avail = payload.sla30d && payload.sla30d.observedAvailabilityPercent !== null
+        ? payload.sla30d.observedAvailabilityPercent + "%"
+        : "unobserved";
+      box.textContent = "Status: " + payload.status.toUpperCase() + " | 30d Observed Availability: " + avail + " (target " + payload.sla30d.targetSlaPercent + "%) | Mizan Nexus: " + payload.shariaMizan.mizanNexusStatus + " | " + payload.shariaMizan.advisoryBadge;
+    }
+
     document.getElementById("corpus-search-btn").addEventListener("click", () => {
       searchCorpus(document.getElementById("corpus-query").value);
     });
@@ -687,12 +876,80 @@ export function renderPortalHtml(): string {
         document.getElementById("poster-subtitle").value,
       );
     });
+    document.getElementById("currency-usd-btn").addEventListener("click", () => {
+      loadPricing("USD");
+    });
+    document.getElementById("currency-idr-btn").addEventListener("click", () => {
+      loadPricing("IDR");
+    });
+    document.getElementById("checkout-intent-btn").addEventListener("click", () => {
+      generateCheckoutIntent();
+    });
 
     loadEcosystem();
     searchCorpus("");
     loadLivePanels();
     convertMTime("");
+    loadPricing("USD");
+    loadSlaMizanWidget();
   </script>
+</body>
+</html>`;
+}
+
+function renderPricingHtml(
+  pricing: ReturnType<typeof buildPricingResponsePayload>,
+  config: PortalConfig,
+): string {
+  const schemaOrg = buildSchemaOrgJsonLd({
+    origin: config.publicOrigin,
+    tiers: PRICING_TIERS,
+    fxRateIdrPerUsd: config.usdToIdrRate,
+    compliance: COMPLIANCE_STANDARDS,
+  });
+  const affiliateMeta = pricing.attribution.ref
+    ? `\n  <meta name="mw-affiliate-ref" content="${escapeHtmlAttr(pricing.attribution.ref)}" />`
+    : "";
+  const cards = pricing.tiers
+    .map(
+      (tier) => `<article class="card">
+      <h3>${escapeHtmlAttr(tier.name)} — ${escapeHtmlAttr(tier.displayPrice)}/mo</h3>
+      <p>${escapeHtmlAttr(tier.summary)}</p>
+      <p>USD: ${escapeHtmlAttr(tier.formattedUsd)} · IDR: ${escapeHtmlAttr(tier.formattedIdr)}</p>
+    </article>`,
+    )
+    .join("\n");
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pricing (${escapeHtmlAttr(pricing.currency)}) — A-L-L-A-H.COM</title>${affiliateMeta}
+  <script type="application/ld+json">${serializeJsonLdSafe(schemaOrg)}</script>
+  <style>
+    body { margin: 0; padding: 1.5rem; background: #06090c; color: #eef2f5; font-family: system-ui, sans-serif; }
+    main { max-width: 960px; margin: 0 auto; }
+    h1 { color: #d4af37; }
+    .toggle { display: flex; gap: 0.75rem; margin: 1rem 0; }
+    .toggle a { color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.4); padding: 0.35rem 0.75rem; border-radius: 999px; text-decoration: none; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 0.9rem; margin-top: 1rem; }
+    .card { background: #111b22; border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 8px; padding: 1rem; }
+    .card h3 { color: #f0d78c; margin-top: 0; }
+    pre { background: #0c1318; border: 1px dashed rgba(16, 185, 129, 0.4); padding: 1rem; border-radius: 8px; overflow-x: auto; font-size: 0.82rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>MoonWitness PaaS Pricing (${escapeHtmlAttr(pricing.currency)})</h1>
+    <div class="toggle">
+      <a href="${escapeHtmlAttr(pricing.toggleUrls.USD)}">USD ($)</a>
+      <a href="${escapeHtmlAttr(pricing.toggleUrls.IDR)}">IDR (Rp / QRIS &amp; VA)</a>
+    </div>
+    <div class="grid">${cards}</div>
+    <h2>QRIS / VA Checkout Intent Preview</h2>
+    <pre>${escapeHtmlAttr(JSON.stringify(pricing.checkoutIntent, null, 2))}</pre>
+  </main>
 </body>
 </html>`;
 }
@@ -703,6 +960,54 @@ export async function handleRequest(
 ): Promise<Response> {
   const url = new URL(request.url);
   const { pathname } = url;
+  const affiliate = resolveAffiliateContext(request, url);
+  const querySetCookie = affiliate.shouldSetCookie && affiliate.attribution.ref
+    ? buildAffiliateSetCookieHeader(affiliate.attribution.ref)
+    : null;
+
+  if (pathname === "/api/pricing/checkout-intent") {
+    if (request.method !== "POST") {
+      return jsonResponse({ error: "Method not allowed" }, 405);
+    }
+    let parsed: Record<string, unknown>;
+    try {
+      const raw = await request.json();
+      if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+        return jsonResponse({ error: "Request body must be a JSON object" }, 400);
+      }
+      parsed = raw as Record<string, unknown>;
+    } catch {
+      return jsonResponse({ error: "Invalid JSON body" }, 400);
+    }
+
+    const checkoutAffiliate = resolveAffiliateContext(request, url, parsed.ref);
+    const checkoutSetCookie =
+      checkoutAffiliate.shouldSetCookie && checkoutAffiliate.attribution.ref
+        ? buildAffiliateSetCookieHeader(checkoutAffiliate.attribution.ref)
+        : null;
+
+    try {
+      const intent = buildCheckoutIntentPayload({
+        tier: parsed.tier,
+        currency: parsed.currency ?? "IDR",
+        paymentMethod: parsed.paymentMethod ?? "QRIS",
+        bankCode: parsed.bankCode,
+        fxRateIdrPerUsd: config.usdToIdrRate,
+        affiliateRef: checkoutAffiliate.attribution.ref,
+      });
+      return jsonResponse(
+        {
+          ...intent,
+          attribution: checkoutAffiliate.attribution,
+        },
+        200,
+        checkoutSetCookie,
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Invalid checkout intent parameters";
+      return jsonResponse({ error: message }, 400);
+    }
+  }
 
   if (pathname === "/api/aqel/analyze") {
     if (request.method !== "POST") {
@@ -779,13 +1084,15 @@ export async function handleRequest(
   }
 
   if (pathname === "/") {
-    return new Response(renderPortalHtml(), {
-      status: 200,
-      headers: {
-        "Content-Type": "text/html; charset=utf-8",
-        "X-Content-Type-Options": "nosniff",
-      },
-    });
+    return htmlResponse(
+      renderPortalHtml({
+        origin: config.publicOrigin,
+        usdToIdrRate: config.usdToIdrRate,
+        affiliateRef: affiliate.attribution.ref,
+      }),
+      200,
+      querySetCookie,
+    );
   }
 
   if (pathname === "/health") {
@@ -896,25 +1203,60 @@ export async function handleRequest(
   }
 
   if (pathname === "/pricing") {
-    return jsonResponse(buildPricingResponsePayload(COMPLIANCE_STANDARDS));
+    try {
+      const payload = buildPricingResponsePayload(COMPLIANCE_STANDARDS, {
+        currency: url.searchParams.get("currency"),
+        fxRateIdrPerUsd: config.usdToIdrRate,
+        tier: url.searchParams.get("tier"),
+        paymentMethod: url.searchParams.get("method"),
+        bankCode: url.searchParams.get("bank"),
+        affiliateRef: affiliate.attribution.ref,
+        attributionSource: affiliate.attribution.source,
+      });
+      if (url.searchParams.get("format") === "html") {
+        return htmlResponse(renderPricingHtml(payload, config), 200, querySetCookie);
+      }
+      return jsonResponse(payload, 200, querySetCookie);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Invalid pricing query parameters";
+      return jsonResponse({ error: message }, 400);
+    }
   }
 
   if (pathname === "/status") {
-    const targets: UpstreamTarget[] = [
-      { id: "mw-corpus", baseUrl: config.corpusUrl },
-      { id: "mw-nexus", baseUrl: config.nexusUrl },
-      { id: "mw-lore", baseUrl: config.loreUrl },
-      { id: "mw-echo", baseUrl: config.echoUrl },
-      { id: "mw-studio", baseUrl: config.studioUrl },
-    ];
-    if (config.cpUrl && config.cpUrl.trim().length > 0) {
-      targets.push({ id: "mw-cp", baseUrl: config.cpUrl });
-    }
+    const targets = getUpstreamTargets(config);
     const payload = await buildStatusResponsePayload(
       targets,
       (targetUrl) => fetchUpstreamJson(targetUrl, config),
     );
-    return jsonResponse(payload);
+    config.slaTracker.record(payload.status, payload.upstreams);
+    return jsonResponse(payload, 200, querySetCookie);
+  }
+
+  if (pathname === "/api/status/widget" || pathname === "/widgets/sla-mizan") {
+    const targets = getUpstreamTargets(config);
+    const statusPayload = await buildStatusResponsePayload(
+      targets,
+      (targetUrl) => fetchUpstreamJson(targetUrl, config),
+    );
+    config.slaTracker.record(statusPayload.status, statusPayload.upstreams);
+    const widgetPayload = buildSlaMizanWidgetPayload({
+      statusPayload,
+      sla30d: config.slaTracker.getSummary(),
+      advisoryBadge: NON_NORMATIVE_ADVISORY_BADGE,
+      compliance: COMPLIANCE_STANDARDS,
+    });
+    if (pathname === "/widgets/sla-mizan" || url.searchParams.get("format") === "html") {
+      return htmlResponse(renderSlaMizanWidgetHtml(widgetPayload), 200, querySetCookie);
+    }
+    return jsonResponse(
+      {
+        ...widgetPayload,
+        attribution: affiliate.attribution,
+      },
+      200,
+      querySetCookie,
+    );
   }
 
   if (pathname === "/paas/catalog") {
@@ -924,7 +1266,30 @@ export async function handleRequest(
       query: url.searchParams.get("q"),
       probeFn: (targetUrl) => fetchUpstreamJson(targetUrl, config),
     });
-    return jsonResponse(payload);
+    return jsonResponse(
+      {
+        ...payload,
+        attribution: affiliate.attribution,
+      },
+      200,
+      querySetCookie,
+    );
+  }
+
+  if (pathname === "/sitemap.xml") {
+    const catalog = await buildPaasCatalogResponsePayload({
+      cpUrl: config.cpUrl,
+      probeFn: (targetUrl) => fetchUpstreamJson(targetUrl, config),
+    });
+    const xml = buildSitemapXml({
+      origin: config.publicOrigin,
+      templates: catalog.templates,
+    });
+    return xmlResponse(xml, 200, querySetCookie);
+  }
+
+  if (pathname === "/api/attribution") {
+    return jsonResponse(affiliate.attribution, 200, querySetCookie);
   }
 
   return jsonResponse({ error: "Not found", path: pathname }, 404);

@@ -272,13 +272,334 @@ export const PAAS_CATALOG_TEMPLATES: readonly PaasCatalogTemplate[] = Object.fre
   }),
 ]);
 
-export function buildPricingResponsePayload(compliance: readonly string[]) {
+export type PricingCurrency = "USD" | "IDR";
+export type PaymentMethod = "QRIS" | "VA";
+export type VaBankCode = "BSI" | "BCA" | "MANDIRI" | "BNI" | "BRI";
+
+export const DEFAULT_USD_TO_IDR_RATE = 16000;
+
+export const SUPPORTED_VA_BANKS: Record<VaBankCode, { readonly name: string; readonly prefix: string }> = Object.freeze({
+  BSI: Object.freeze({ name: "Bank Syariah Indonesia (BSI)", prefix: "45100" }),
+  BCA: Object.freeze({ name: "Bank Central Asia (BCA)", prefix: "39010" }),
+  MANDIRI: Object.freeze({ name: "Bank Mandiri", prefix: "88010" }),
+  BNI: Object.freeze({ name: "Bank Negara Indonesia (BNI)", prefix: "88020" }),
+  BRI: Object.freeze({ name: "Bank Rakyat Indonesia (BRI)", prefix: "88030" }),
+});
+
+export interface QrisPaymentPayload {
+  readonly payloadFormatIndicator: "01";
+  readonly pointOfInitiation: "12";
+  readonly currencyNumericCode: "360";
+  readonly countryCode: "ID";
+  readonly nmid: string;
+  readonly merchantName: string;
+  readonly merchantCity: string;
+  readonly amountIdr: number;
+  readonly referenceLabel: string;
+  readonly emvCoString: string;
+  readonly crc16: string;
+}
+
+export interface VirtualAccountPaymentPayload {
+  readonly bankCode: VaBankCode;
+  readonly bankName: string;
+  readonly accountNumber: string;
+  readonly accountName: string;
+  readonly currency: "IDR";
+  readonly amountIdr: number;
+}
+
+export interface CheckoutIntentPayload {
+  readonly intentId: string;
+  readonly service: "mw-mylove";
+  readonly domain: "a-l-l-a-h.com";
+  readonly status: "pending_payment";
+  readonly tier: PricingTierId;
+  readonly tierName: string;
+  readonly currency: "IDR";
+  readonly requestedDisplayCurrency: PricingCurrency;
+  readonly fxRateIdrPerUsd: number;
+  readonly amountUsd: number;
+  readonly amountIdr: number;
+  readonly formattedIdr: string;
+  readonly paymentMethod: PaymentMethod;
+  readonly affiliateRef: string | null;
+  readonly expiresAt: string;
+  readonly shariaCompliance: {
+    readonly ribaFree: true;
+    readonly ghararFree: true;
+    readonly maysirFree: true;
+    readonly latePenaltyIdr: 0;
+    readonly akad: "Ujrah / Ijarah";
+  };
+  readonly qris: QrisPaymentPayload | null;
+  readonly virtualAccount: VirtualAccountPaymentPayload | null;
+}
+
+export function formatUsd(amountUsd: number): string {
+  return `$${amountUsd}`;
+}
+
+export function formatIdr(amountIdr: number): string {
+  const rounded = Math.round(amountIdr);
+  const grouped = String(rounded).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return `Rp ${grouped}`;
+}
+
+export function normalizePricingCurrency(raw: unknown): PricingCurrency {
+  if (raw === undefined || raw === null || String(raw).trim() === "") {
+    return "USD";
+  }
+  const upper = String(raw).trim().toUpperCase();
+  if (upper === "USD" || upper === "IDR") {
+    return upper;
+  }
+  throw new Error("Unsupported currency; expected USD or IDR");
+}
+
+function formatTlv(tag: string, value: string): string {
+  const len = String(value.length).padStart(2, "0");
+  return `${tag}${len}${value}`;
+}
+
+export function crc16CcittFalse(input: string): string {
+  let crc = 0xffff;
+  for (let i = 0; i < input.length; i += 1) {
+    crc ^= input.charCodeAt(i) << 8;
+    for (let bit = 0; bit < 8; bit += 1) {
+      if ((crc & 0x8000) !== 0) {
+        crc = ((crc << 1) ^ 0x1021) & 0xffff;
+      } else {
+        crc = (crc << 1) & 0xffff;
+      }
+    }
+  }
+  return crc.toString(16).toUpperCase().padStart(4, "0");
+}
+
+export function buildEmvCoQrisPayload(options: {
+  referenceLabel: string;
+  amountIdr: number;
+  merchantName?: string;
+  merchantCity?: string;
+  nmid?: string;
+}): QrisPaymentPayload {
+  const nmid = options.nmid ?? "ID1020260000446";
+  const merchantName = (options.merchantName ?? "ALLAH.COM MW").slice(0, 25);
+  const merchantCity = (options.merchantCity ?? "JAKARTA").slice(0, 15);
+  const amountStr = String(Math.round(options.amountIdr));
+  const referenceLabel = options.referenceLabel.slice(0, 25);
+
+  const merchantAccountInfo =
+    formatTlv("00", "ID.CO.QRIS.WWW") +
+    formatTlv("01", nmid) +
+    formatTlv("03", "UMI");
+  const additionalData = formatTlv("05", referenceLabel);
+
+  const bodyWithoutCrc =
+    formatTlv("00", "01") +
+    formatTlv("01", "12") +
+    formatTlv("26", merchantAccountInfo) +
+    formatTlv("52", "5734") +
+    formatTlv("53", "360") +
+    formatTlv("54", amountStr) +
+    formatTlv("58", "ID") +
+    formatTlv("59", merchantName) +
+    formatTlv("60", merchantCity) +
+    formatTlv("62", additionalData) +
+    "6304";
+
+  const crc16 = crc16CcittFalse(bodyWithoutCrc);
+  return {
+    payloadFormatIndicator: "01",
+    pointOfInitiation: "12",
+    currencyNumericCode: "360",
+    countryCode: "ID",
+    nmid,
+    merchantName,
+    merchantCity,
+    amountIdr: Math.round(options.amountIdr),
+    referenceLabel,
+    emvCoString: `${bodyWithoutCrc}${crc16}`,
+    crc16,
+  };
+}
+
+function buildDeterministicVaDigits(seed: string): string {
+  let hash = 2166136261;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash ^= seed.charCodeAt(i);
+    hash = Math.imul(hash, 16777619) >>> 0;
+  }
+  return String(hash).padStart(10, "0").slice(0, 10);
+}
+
+export function buildCheckoutIntentPayload(options: {
+  tier: unknown;
+  currency?: unknown;
+  paymentMethod?: unknown;
+  bankCode?: unknown;
+  fxRateIdrPerUsd?: number;
+  affiliateRef?: string | null;
+  now?: Date;
+}): CheckoutIntentPayload {
+  const tierId = typeof options.tier === "string" ? options.tier.trim().toLowerCase() : "";
+  if (!isPricingTierId(tierId)) {
+    throw new Error("Invalid tier; expected one of free, starter, pro, enterprise");
+  }
+  const tierSpec = PRICING_TIERS.find((entry) => entry.tier === tierId)!;
+  if (tierSpec.monthlyUsd <= 0) {
+    throw new Error("Free tier does not require QRIS or Virtual Account payment");
+  }
+
+  const requestedDisplayCurrency = normalizePricingCurrency(options.currency ?? "IDR");
+  const rawMethod = options.paymentMethod === undefined || options.paymentMethod === null || String(options.paymentMethod).trim() === ""
+    ? "QRIS"
+    : String(options.paymentMethod).trim().toUpperCase();
+
+  let paymentMethod: PaymentMethod;
+  let inferredBankCode: string | undefined;
+  if (rawMethod === "QRIS") {
+    paymentMethod = "QRIS";
+  } else if (rawMethod === "VA") {
+    paymentMethod = "VA";
+  } else if (rawMethod.startsWith("VA_")) {
+    paymentMethod = "VA";
+    inferredBankCode = rawMethod.slice(3);
+  } else {
+    throw new Error("Unsupported paymentMethod; expected QRIS or VA");
+  }
+
+  const rawBank = (options.bankCode ?? inferredBankCode ?? "BSI");
+  const bankUpper = String(rawBank).trim().toUpperCase() as VaBankCode;
+  if (paymentMethod === "VA" && !(bankUpper in SUPPORTED_VA_BANKS)) {
+    throw new Error("Unsupported bankCode; expected one of BSI, BCA, MANDIRI, BNI, BRI");
+  }
+
+  const fxRate =
+    typeof options.fxRateIdrPerUsd === "number" && Number.isFinite(options.fxRateIdrPerUsd) && options.fxRateIdrPerUsd > 0
+      ? Math.round(options.fxRateIdrPerUsd)
+      : DEFAULT_USD_TO_IDR_RATE;
+
+  const amountIdr = Math.round(tierSpec.monthlyUsd * fxRate);
+  const now = options.now ?? new Date();
+  const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
+  const timestampCompact = now.toISOString().replace(/[-:TZ.]/g, "").slice(0, 14);
+  const refSuffix = options.affiliateRef ? `-${options.affiliateRef.slice(0, 8)}` : "";
+  const intentId = `mw-pay-${tierSpec.tier}-${timestampCompact}${refSuffix}`;
+  const referenceLabel = `MW-${tierSpec.tier.toUpperCase()}-${timestampCompact.slice(-6)}`;
+
+  const qris =
+    paymentMethod === "QRIS"
+      ? buildEmvCoQrisPayload({ referenceLabel, amountIdr })
+      : null;
+
+  const virtualAccount =
+    paymentMethod === "VA"
+      ? {
+          bankCode: bankUpper,
+          bankName: SUPPORTED_VA_BANKS[bankUpper].name,
+          accountNumber: `${SUPPORTED_VA_BANKS[bankUpper].prefix}${buildDeterministicVaDigits(intentId)}`,
+          accountName: "MOONWITNESS SOVEREIGN PAAS",
+          currency: "IDR" as const,
+          amountIdr,
+        }
+      : null;
+
+  return {
+    intentId,
+    service: "mw-mylove",
+    domain: "a-l-l-a-h.com",
+    status: "pending_payment",
+    tier: tierSpec.tier,
+    tierName: tierSpec.name,
+    currency: "IDR",
+    requestedDisplayCurrency,
+    fxRateIdrPerUsd: fxRate,
+    amountUsd: tierSpec.monthlyUsd,
+    amountIdr,
+    formattedIdr: formatIdr(amountIdr),
+    paymentMethod,
+    affiliateRef: options.affiliateRef ?? null,
+    expiresAt,
+    shariaCompliance: {
+      ribaFree: true,
+      ghararFree: true,
+      maysirFree: true,
+      latePenaltyIdr: 0,
+      akad: "Ujrah / Ijarah",
+    },
+    qris,
+    virtualAccount,
+  };
+}
+
+export function buildPricingResponsePayload(
+  compliance: readonly string[],
+  options: {
+    currency?: unknown;
+    fxRateIdrPerUsd?: number;
+    tier?: unknown;
+    paymentMethod?: unknown;
+    bankCode?: unknown;
+    affiliateRef?: string | null;
+    attributionSource?: "body" | "query" | "cookie" | "none";
+  } = {},
+) {
+  const currency = normalizePricingCurrency(options.currency);
+  const fxRateIdrPerUsd =
+    typeof options.fxRateIdrPerUsd === "number" && Number.isFinite(options.fxRateIdrPerUsd) && options.fxRateIdrPerUsd > 0
+      ? Math.round(options.fxRateIdrPerUsd)
+      : DEFAULT_USD_TO_IDR_RATE;
+
+  const tiers = PRICING_TIERS.map((tier) => {
+    const monthlyIdr = Math.round(tier.monthlyUsd * fxRateIdrPerUsd);
+    return {
+      ...tier,
+      monthlyIdr,
+      formattedUsd: formatUsd(tier.monthlyUsd),
+      formattedIdr: formatIdr(monthlyIdr),
+      displayPrice: currency === "IDR" ? formatIdr(monthlyIdr) : formatUsd(tier.monthlyUsd),
+    };
+  });
+
+  const previewTier =
+    typeof options.tier === "string" && isPricingTierId(options.tier.trim().toLowerCase()) && options.tier.trim().toLowerCase() !== "free"
+      ? options.tier.trim().toLowerCase()
+      : "starter";
+
+  const checkoutIntent = buildCheckoutIntentPayload({
+    tier: previewTier,
+    currency,
+    paymentMethod: options.paymentMethod ?? "QRIS",
+    bankCode: options.bankCode,
+    fxRateIdrPerUsd,
+    affiliateRef: options.affiliateRef ?? null,
+  });
+
+  const refQuery = options.affiliateRef ? `&ref=${encodeURIComponent(options.affiliateRef)}` : "";
+
   return {
     domain: "a-l-l-a-h.com",
     service: "mw-mylove",
-    currency: "USD",
+    currency,
+    supportedCurrencies: ["USD", "IDR"] as const,
+    fxRateIdrPerUsd,
     billingCycle: "monthly",
-    tiers: PRICING_TIERS,
+    tiers,
+    paymentMethods: ["QRIS", "VA_BSI", "VA_BCA", "VA_MANDIRI", "VA_BNI", "VA_BRI"] as const,
+    checkoutEndpoint: "/api/pricing/checkout-intent",
+    toggleUrls: {
+      USD: `/pricing?currency=USD${refQuery}`,
+      IDR: `/pricing?currency=IDR${refQuery}`,
+    },
+    checkoutIntent,
+    attribution: {
+      ref: options.affiliateRef ?? null,
+      source: options.attributionSource ?? "none",
+      cookieName: "mw_ref",
+      ttlDays: 30,
+    },
     compliance,
   };
 }
