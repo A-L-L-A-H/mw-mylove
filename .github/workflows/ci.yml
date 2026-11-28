@@ -31,7 +31,7 @@ jobs:
       - name: Install commitlint
         run: npm install -g @commitlint/cli @commitlint/config-conventional
       - name: Run commitlint
-        run: npx commitlint --from=origin/main --to=HEAD --extends @commitlint/config-conventional
+        run: npx commitlint --from=origin/main --to=HEAD --config commitlint.ci.config.cjs
 
   verify:
     name: Verify
@@ -48,8 +48,13 @@ jobs:
           ref: fb3b75cbb64d8a4ef3d148bd1133d48e083a8950
           path: mw-design
           persist-credentials: false
+      - name: Build shared UI package
+        run: |
+          bun install --frozen-lockfile
+          bun run build --workspace=@moonwitness/ui
+        working-directory: mw-design
       - name: Set up Bun
-        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        uses: oven-sh/setup-bun@0c5077e51419868618aae5fe8019c62421857d6
         with:
           bun-version: 1.4.5
       - name: Install dependencies
@@ -98,9 +103,7 @@ jobs:
           install -m 0755 "$RUNNER_TEMP/gitleaks" /usr/local/bin/gitleaks
       - name: Scan full history for secrets
         shell: bash
-        run: |
-          set -euo pipefail
-          gitleaks git --log-opts="--all" --redact --no-banner --exit-code 1
+        run: gitleaks git --log-opts="--all" --redact --no-banner --exit-code 1
       - name: Set up Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
         with:
