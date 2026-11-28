@@ -96,6 +96,7 @@ export default [
       "@typescript-eslint/no-unnecessary-condition": "off",
       "@typescript-eslint/no-unnecessary-type-assertion": "off",
       "@typescript-eslint/no-unsafe-assignment": "off",
+      "@typescript-eslint/no-unsafe-argument": "off",
       "@typescript-eslint/restrict-template-expressions": "off",
       "@typescript-eslint/return-await": "off",
       "prefer-template": "off",
