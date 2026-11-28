@@ -111,6 +111,12 @@ const unicornConfig = [
     delete config.env;
     delete config.parserOptions;
     delete config.plugins;
+    config.rules = { ...config.rules };
+    if (
+      config.rules?.["unicorn/logical-assignment-operators"]?.[1] === undefined
+    ) {
+      delete config.rules["unicorn/logical-assignment-operators"];
+    }
     config.name = "unicorn/recommended";
     config.plugins = { unicorn };
     config.languageOptions = {
