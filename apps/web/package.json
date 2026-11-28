@@ -1,0 +1,32 @@
+{
+  "name": "@mw/web",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev -p 4460",
+    "build": "next build",
+    "start": "next start -p 4460",
+    "typecheck": "next typegen && tsc --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@moonwitness/assets": "file:../../../mw-design/packages/assets",
+    "@moonwitness/ui": "file:../../../mw-design/packages/ui",
+    "@mw/portal": "workspace:*",
+    "@mw/seo": "workspace:*",
+    "@mw/sla": "workspace:*",
+    "@mw/storefront": "workspace:*",
+    "next": "^16.0.0",
+    "radix-ui": "^1.6.7",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@mw/tsconfig": "workspace:*",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "typescript": "^5.8.2"
+  }
+}

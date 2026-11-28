@@ -1,37 +1,32 @@
 # Contributing to mw-mylove
 
-Thank you for considering contributing to this MoonWitness repository!
-
 ## Quick Start
 
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feat/your-feature`
-3. Make your changes
-4. Run verification: `./mw-ws.sh test mw-mylove` (or the repo-specific test command)
-5. Submit a pull request
+1. Fork the repository and create a feature branch.
+2. Install dependencies with `bun install`.
+3. Make changes in the owning `apps/*` or `packages/*` workspace.
+4. Verify before opening a pull request:
+
+```bash
+bun run lint
+bun run format:check
+bun run typecheck
+bun test
+bun run build
+```
 
 ## Commit Convention
 
-We follow [Conventional Commits](https://www.conventionalcommits.org/):
-
-- `feat:` — new feature
-- `fix:` — bug fix
-- `docs:` — documentation only
-- `chore:` — maintenance, build, deps
-- `refactor:` — code change without behavior change
-- `test:` — adding or fixing tests
+We follow [Conventional Commits](https://www.conventionalcommits.org/): `feat`, `fix`, `docs`, `chore`, `refactor`, and `test`.
 
 ## Code Quality
 
-All changes must pass the repository's verification commands (see README.md Quick start / Verify sections).
+ESLint 9 is strict. `max-lines` is 300, `max-len` is 100, and `complexity` is 10. `bun run lint` uses `--max-warnings 0`; `bun run lint:changed` checks changed files; `bun run check-disables` requires a ticket token on every `eslint-disable` directive.
 
 ## Reporting Issues
 
-Use the GitHub issue tracker. Include:
-- Steps to reproduce
-- Expected vs actual behavior
-- Environment details
+Use the GitHub issue tracker with reproduction steps, expected versus actual behavior, and environment details.
 
 ## Security
 
-For security issues, see [SECURITY.md](SECURITY.md) or email the maintainers directly.
+For security issues, see [SECURITY.md](SECURITY.md).

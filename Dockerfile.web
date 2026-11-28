@@ -1,0 +1,30 @@
+FROM oven/bun:1.4.5-alpine AS dependencies
+WORKDIR /workspace
+COPY package.json bun.lock ./
+COPY apps/web/package.json apps/web/package.json
+COPY apps/api/package.json apps/api/package.json
+COPY packages ./packages
+COPY ../mw-design/packages/ui ./mw-design/packages/ui
+COPY ../mw-design/packages/assets ./mw-design/packages/assets
+RUN bun install --frozen-lockfile
+
+FROM oven/bun:1.4.5-alpine AS builder
+WORKDIR /workspace
+COPY --from=dependencies /workspace/node_modules ./node_modules
+COPY --from=dependencies /workspace/mw-design ./mw-design
+COPY . .
+RUN bun run --filter @mw/web build
+
+FROM node:22-alpine AS runtime
+WORKDIR /workspace
+ENV NODE_ENV=production
+ENV PORT=4460
+ENV HOSTNAME=0.0.0.0
+ENV MW_MYLOVE_PORT=4460
+COPY --from=builder /workspace/apps/web/.next/standalone ./
+COPY --from=builder /workspace/apps/web/.next/static ./apps/web/.next/static
+COPY --from=builder /workspace/mw-design ./mw-design
+EXPOSE 4460
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+  CMD wget -qO- http://127.0.0.1:4460/health || exit 1
+CMD ["node", "apps/web/server.js"]

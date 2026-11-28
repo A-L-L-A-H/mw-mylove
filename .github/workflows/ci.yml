@@ -1,43 +1,112 @@
-name: CI & GHCR Publish
+name: CI
 
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
-  packages: write
+  security-events: write
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  test:
-    name: Bun Test
-    runs-on: ubuntu-latest
+  commitlint:
+    name: commitlint
+    runs-on: ubuntu-24.04
+    if: github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          bun-version: latest
-      - run: bun install
-      - run: bun test
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - name: Install commitlint
+        run: npm install -g @commitlint/cli @commitlint/config-conventional
+      - name: Run commitlint
+        run: npx commitlint --from=origin/main --to=HEAD --config commitlint.ci.config.cjs
 
-  docker:
-    name: Build & Push GHCR
-    needs: test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+  verify:
+    name: verify
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/login-action@v3
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v6
+          persist-credentials: false
+          path: mw-mylove
+      - name: Check out shared design system
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          context: .
-          push: true
-          tags: |
-            ghcr.io/a-l-l-a-h/mw-mylove:latest
-            ghcr.io/a-l-l-a-h/mw-mylove:${{ github.sha }}
+          repository: A-L-L-A-H/mw-design
+          ref: fb3b75cbb64d8a4ef3d148bd1133d48e083a8950
+          path: mw-design
+          persist-credentials: false
+      - name: Set up Bun for shared UI build
+        uses: oven-sh/setup-bun@v2.2.0
+        with:
+          bun-version: 1.4.5
+      - name: Build shared UI package
+        run: |
+          bun install --frozen-lockfile
+          bun run --filter=@moonwitness/ui build
+        working-directory: mw-design
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+        working-directory: mw-mylove
+      - name: Lint
+        run: bun run lint
+        working-directory: mw-mylove
+      - name: Format check
+        run: bun run format:check
+        working-directory: mw-mylove
+      - name: Typecheck
+        run: bun run typecheck
+        working-directory: mw-mylove
+      - name: Test
+        run: bun test
+        working-directory: mw-mylove
+      - name: Build
+        run: bun run build
+        working-directory: mw-mylove
+
+  security:
+    name: Security
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install pinned gitleaks CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          version='8.30.1'
+          archive="$RUNNER_TEMP/gitleaks_${version}_linux_x64.tar.gz"
+          curl --fail --silent --show-error --location \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${version}/gitleaks_${version}_linux_x64.tar.gz" \
+            --output "$archive"
+          expected='551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb'
+          actual="$(sha256sum "$archive" | cut -d' ' -f1)"
+          if [ "$actual" != "$expected" ]; then
+            echo "::error::gitleaks checksum mismatch: expected $expected, got $actual"
+            exit 1
+          fi
+          tar -xzf "$archive" -C "$RUNNER_TEMP" gitleaks
+          install -m 0755 "$RUNNER_TEMP/gitleaks" /usr/local/bin/gitleaks
+      - name: Scan full history for secrets
+        shell: bash
+        run: gitleaks git --log-opts="--all" --redact --no-banner --exit-code 1
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2.2.0
+        with:
+          bun-version: 1.4.5
+      - name: bun audit
+        run: bun audit --audit-level high

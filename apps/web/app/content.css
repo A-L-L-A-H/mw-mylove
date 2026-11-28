@@ -1,0 +1,140 @@
+.content-page {
+  min-height: 70vh;
+  padding-block: clamp(2.5rem, 6vw, 5rem);
+}
+
+.content-page-header {
+  max-width: 850px;
+  margin-bottom: 2rem;
+}
+
+.content-page-title {
+  margin: 0;
+  font-family: var(--mw-font-brush), system-ui, sans-serif;
+  font-size: clamp(2.3rem, 6vw, 5rem);
+  line-height: 0.95;
+  text-transform: uppercase;
+}
+
+.content-page-description {
+  max-width: 680px;
+  color: var(--mw-paper-muted);
+  font-size: 1.05rem;
+}
+
+.content-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr));
+  gap: 1rem;
+}
+
+.content-panel {
+  min-height: 180px;
+  border-color: var(--mw-night-outline);
+}
+
+.content-panel .mw-ui-panel-title,
+.content-panel h2,
+.content-panel h3 {
+  color: var(--portal-yellow);
+  font-family: var(--mw-font-display), sans-serif;
+  text-transform: uppercase;
+}
+
+.content-panel p,
+.content-panel li {
+  color: var(--mw-paper-muted);
+}
+
+.content-panel a {
+  color: var(--portal-cyan);
+}
+
+.field-stack {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.field-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.result-box {
+  max-height: 24rem;
+  overflow: auto;
+  margin: 0.75rem 0 0;
+  padding: 0.85rem;
+  border: 1px solid var(--mw-night-outline);
+  background: var(--mw-night);
+  color: var(--mw-paper-cream);
+  font-family: var(--mw-font-mono), monospace;
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.world-detail-art {
+  width: min(100%, 900px);
+  height: auto;
+  max-height: 520px;
+  object-fit: cover;
+  border: 2px solid var(--portal-paper);
+}
+
+.price-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+  gap: 1rem;
+}
+
+.price-value {
+  margin: 0.75rem 0;
+  color: var(--portal-magenta);
+  font-family: var(--mw-font-display), sans-serif;
+  font-size: 2rem;
+}
+
+.catalog-list {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0;
+  list-style: none;
+}
+
+.catalog-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border-left: 4px solid var(--portal-cyan);
+  background: var(--mw-night-raised);
+}
+
+.status-list {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0;
+  list-style: none;
+}
+
+.status-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--mw-night-outline);
+}
+
+.status-state {
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.status-state[data-state="online"] {
+  color: var(--mw-success-readable);
+}
+.status-state[data-state="offline"] {
+  color: var(--mw-error);
+}
