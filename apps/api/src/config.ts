@@ -14,7 +14,7 @@ function readPort(value: string | undefined, fallback: number): number {
   }
 
   const port = Number(value);
-  return Number.isInteger(port) && port > 0 && port <= 65535 ? port : fallback;
+  return Number.isInteger(port) && port > 0 && port <= 65_535 ? port : fallback;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {

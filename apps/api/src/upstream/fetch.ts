@@ -32,6 +32,21 @@ export function resolveUpstreamTimeoutMs(
     : DEFAULT_UPSTREAM_TIMEOUT_MS;
 }
 
+function buildRequestInit(
+  options: UpstreamRequest,
+  signal: AbortSignal,
+): RequestInit {
+  const method = options.method ?? "GET";
+  const headers: Record<string, string> = {
+    Accept: "application/json, image/svg+xml",
+  };
+  if (method === "POST" && options.body !== undefined) {
+    headers["Content-Type"] = "application/json";
+    return { method, headers, body: JSON.stringify(options.body), signal };
+  }
+  return { method, headers, signal };
+}
+
 export async function fetchUpstreamJson<T = unknown>(
   targetUrl: string,
   _config: ApiConfig,
@@ -40,30 +55,20 @@ export async function fetchUpstreamJson<T = unknown>(
   const fetcher = options.fetcher ?? fetch;
   const controller = new AbortController();
   const timeoutMs = resolveUpstreamTimeoutMs(process.env, options.timeoutMs);
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  const method = options.method ?? "GET";
+  const timer = setTimeout(() => {
+    controller.abort();
+  }, timeoutMs);
 
   try {
-    const headers: Record<string, string> = {
-      Accept: "application/json, image/svg+xml",
-    };
-    let body: string | undefined;
-    if (method === "POST" && options.body !== undefined) {
-      headers["Content-Type"] = "application/json";
-      body = JSON.stringify(options.body);
-    }
-
-    const upstreamResponse = await fetcher(targetUrl, {
-      method,
-      headers,
-      body,
-      signal: controller.signal,
-    });
+    const upstreamResponse = await fetcher(
+      targetUrl,
+      buildRequestInit(options, controller.signal),
+    );
     if (!upstreamResponse.ok) {
       return {
         status: "offline",
         httpStatus: upstreamResponse.status,
-        reason: `Upstream returned HTTP ${upstreamResponse.status}`,
+        reason: `Upstream returned HTTP ${String(upstreamResponse.status)}`,
         payload: null,
       };
     }

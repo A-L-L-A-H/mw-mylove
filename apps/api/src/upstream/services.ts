@@ -56,8 +56,8 @@ export function createUpstreamServices(config: ApiConfig): UpstreamServices {
   ): Promise<UpstreamProbeResult> => {
     const requestOptions: UpstreamRequest & ServiceFetchOptions = {
       ...options,
-      ...(method !== undefined ? { method } : {}),
-      ...(body !== undefined ? { body } : {}),
+      ...(method === undefined ? {} : { method }),
+      ...(body === undefined ? {} : { body }),
     };
     return fetchUpstreamJson(targetUrl, config, requestOptions);
   };

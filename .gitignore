@@ -17,3 +17,5 @@ apps/api/dist/
 .plan/*/.leases.local.json
 .tmp-server-head.ts
 .tmp-auth-install/
+
+.eslintcache
