@@ -54,7 +54,7 @@ jobs:
           bun run build --workspace=@moonwitness/ui
         working-directory: mw-design
       - name: Set up Bun
-        uses: oven-sh/setup-bun@0c5077e51419868618aae5fe8019c62421857d6
+        uses: oven-sh/setup-bun@v2.2.0
         with:
           bun-version: 1.4.5
       - name: Install dependencies
@@ -105,7 +105,7 @@ jobs:
         shell: bash
         run: gitleaks git --log-opts="--all" --redact --no-banner --exit-code 1
       - name: Set up Bun
-        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        uses: oven-sh/setup-bun@v2.2.0
         with:
           bun-version: 1.4.5
       - name: bun audit
