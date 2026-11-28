@@ -3,18 +3,34 @@
   "version": "1.0.0",
   "description": "Flagship Public Web Portal for A-L-L-A-H.COM & MoonWitness Sovereign Ecosystem",
   "type": "module",
-  "main": "src/index.ts",
+  "private": true,
+  "packageManager": "bun@1.4.5",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
-    "start": "bun run src/index.ts",
-    "dev": "bun --watch src/index.ts",
+    "dev": "bun run --filter @mw/web dev",
+    "build": "bun run --filter @mw/web build && bun run --filter @mw/api build",
+    "start": "bun run --filter @mw/web start",
     "test": "bun test",
-    "typecheck": "bun x tsc --noEmit"
+    "typecheck": "bun run --filter @mw/web typecheck && bun run --filter @mw/api typecheck",
+    "lint": "eslint . --max-warnings 0",
+    "format:check": "prettier --check .",
+    "lint:changed": "bun run scripts/lint-changed.ts",
+    "check-disables": "bun run scripts/check-disables.ts"
   },
   "devDependencies": {
+    "@mw/eslint-config": "workspace:*",
+    "@mw/tsconfig": "workspace:*",
     "@types/bun": "latest",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "eslint": "^9.0.0",
+    "prettier": "^3.0.0",
     "typescript": "^5.8.2"
-  },
-  "dependencies": {
-    "jose": "^6.2.18"
   }
 }

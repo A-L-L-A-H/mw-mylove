@@ -1,0 +1,29 @@
+FROM oven/bun:1.4.5-alpine AS dependencies
+WORKDIR /workspace
+COPY package.json bun.lock ./
+COPY apps/web/package.json apps/web/package.json
+COPY apps/api/package.json apps/api/package.json
+COPY packages ./packages
+COPY ../mw-design/packages/ui ./mw-design/packages/ui
+COPY ../mw-design/packages/assets ./mw-design/packages/assets
+RUN bun install --frozen-lockfile
+
+FROM oven/bun:1.4.5-alpine AS builder
+WORKDIR /workspace
+COPY --from=dependencies /workspace/node_modules ./node_modules
+COPY --from=dependencies /workspace/mw-design ./mw-design
+COPY . .
+RUN bun run --filter @mw/api typecheck
+
+FROM oven/bun:1.4.5-alpine AS runtime
+WORKDIR /workspace
+ENV NODE_ENV=production
+ENV MW_API_PORT=4490
+ENV MW_API_ORIGIN=http://127.0.0.1:4490
+COPY --from=builder /workspace/apps/api ./apps/api
+COPY --from=builder /workspace/packages ./packages
+COPY --from=builder /workspace/node_modules ./node_modules
+EXPOSE 4490
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+  CMD wget -qO- http://127.0.0.1:4490/health || exit 1
+CMD ["bun", "run", "apps/api/src/server.ts"]

@@ -1,0 +1,248 @@
+@media (max-width: 1180px) {
+  .site-brand {
+    flex-basis: 19%;
+  }
+  .primary-navigation a {
+    gap: 0.15rem;
+  }
+  .primary-navigation a svg {
+    width: 16px;
+    height: 16px;
+  }
+  .nav-search {
+    min-width: 118px;
+  }
+  .front-world-strip {
+    grid-template-columns: repeat(9, minmax(0, 1fr)) minmax(90px, 0.9fr);
+    gap: 0.25rem;
+  }
+  .front-world-strip .world-card-copy {
+    padding-inline: 0.25rem;
+  }
+  .front-bottom-values {
+    max-width: 42%;
+    gap: 0.45rem;
+  }
+}
+
+@media (max-width: 820px) {
+  .site-header-inner {
+    min-height: 64px;
+    flex-wrap: wrap;
+    padding-block: 0.45rem;
+  }
+  .site-brand {
+    flex: 1 1 auto;
+    font-size: 1.35rem;
+  }
+  .mobile-menu-button {
+    display: inline-flex;
+  }
+  .primary-navigation {
+    order: 5;
+    display: none;
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .primary-navigation.is-open {
+    display: flex;
+  }
+  .primary-navigation a {
+    min-height: 46px;
+    border-top: 1px solid var(--mw-night-outline);
+    font-size: 0.95rem;
+  }
+  .nav-search {
+    order: 3;
+    flex: 1 1 230px;
+    max-width: none;
+    min-width: 190px;
+  }
+  .language-control {
+    order: 4;
+    margin-left: auto;
+  }
+  .front-poster {
+    min-height: 0;
+  }
+  .front-scene {
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+    padding: 0.85rem 0.75rem 1.4rem;
+  }
+  .front-art {
+    position: absolute;
+    height: 590px;
+  }
+  .front-art picture > img {
+    object-position: 55% top;
+  }
+  .front-brand-lockup {
+    position: relative;
+    top: auto;
+    left: auto;
+    width: min(100%, 600px);
+    min-height: 300px;
+    margin: 4.5rem 0 0 4%;
+    padding-top: 3rem;
+  }
+  .front-index-rail {
+    display: none;
+  }
+  .front-crown {
+    left: 34%;
+  }
+  .front-title {
+    font-size: clamp(3.6rem, 12vw, 6.5rem);
+    white-space: normal;
+  }
+  .front-slogan {
+    font-size: clamp(1.8rem, 7vw, 3.4rem);
+  }
+  .front-tagline {
+    margin-left: 0.5rem;
+  }
+  .front-quote {
+    top: 1rem;
+    right: 1rem;
+    width: min(44%, 240px);
+    font-size: 1.2rem;
+  }
+  .front-action-list {
+    top: 23rem;
+    right: 1rem;
+    grid-template-columns: repeat(2, auto);
+    gap: 0.25rem;
+    font-size: 0.9rem;
+  }
+  .front-worlds {
+    position: relative;
+    top: auto;
+    right: auto;
+    left: auto;
+    height: auto;
+    margin-top: 2rem;
+  }
+  .front-worlds-heading {
+    position: relative;
+    left: 0;
+    margin-bottom: 0.85rem;
+  }
+  .front-worlds-heading h2 {
+    font-size: 1.45rem;
+  }
+  .front-world-strip {
+    position: relative;
+    inset: auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.65rem;
+  }
+  .front-world-strip .world-link {
+    min-height: 190px;
+  }
+  .front-world-strip .world-card {
+    min-height: 190px;
+  }
+  .front-world-strip .world-card-art {
+    flex-basis: 58%;
+  }
+  .front-world-strip .world-card-copy {
+    flex-basis: 42%;
+    padding: 0.5rem;
+  }
+  .front-world-strip .world-card-copy strong {
+    font-size: 0.95rem;
+  }
+  .front-world-strip .world-card-copy span {
+    font-size: 0.72rem;
+  }
+  .front-join-card {
+    min-height: 190px;
+  }
+  .front-join-card strong {
+    font-size: 1.4rem;
+  }
+  .front-join-card span {
+    font-size: 0.8rem;
+  }
+  .front-bottom-values,
+  .front-closer,
+  .front-enter,
+  .front-signoff {
+    position: relative;
+    inset: auto;
+  }
+  .front-bottom-values {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-width: none;
+    margin-top: 1.5rem;
+    gap: 0.8rem;
+  }
+  .front-bottom-values > div {
+    font-size: 0.76rem;
+  }
+  .front-closer {
+    width: min(100%, 440px);
+    margin: 1.3rem auto;
+  }
+  .front-enter {
+    width: min(100%, 480px);
+    margin: 1rem auto;
+  }
+  .front-enter .mw-ui-button {
+    min-height: 56px;
+  }
+  .front-signoff {
+    justify-content: end;
+    margin-top: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .site-header-inner {
+    gap: 0.45rem;
+  }
+  .site-brand {
+    font-size: 1.15rem;
+  }
+  .site-brand-crown {
+    width: 27px;
+  }
+  .nav-search {
+    flex-basis: 100%;
+    order: 3;
+  }
+  .language-control {
+    order: 4;
+  }
+  .front-scene {
+    padding-inline: 0.6rem;
+  }
+  .front-brand-lockup {
+    min-height: 280px;
+    margin-top: 4rem;
+    padding-top: 2rem;
+  }
+  .front-title {
+    font-size: clamp(3rem, 13.5vw, 4.4rem);
+  }
+  .front-slogan {
+    font-size: clamp(1.6rem, 7.5vw, 2.3rem);
+  }
+  .front-tagline {
+    max-width: 90%;
+    font-size: 1rem;
+  }
+  .front-action-list {
+    top: 21rem;
+    right: 0.8rem;
+  }
+  .front-world-strip .world-link,
+  .front-world-strip .world-card,
+  .front-join-card {
+    min-height: 165px;
+  }
+}

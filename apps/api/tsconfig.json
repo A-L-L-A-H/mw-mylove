@@ -1,0 +1,11 @@
+{
+  "extends": "@mw/tsconfig/node",
+  "compilerOptions": {
+    "types": ["bun"],
+    "exactOptionalPropertyTypes": false,
+    "allowImportingTsExtensions": true,
+    "noEmit": true
+  },
+  "include": ["src/**/*.ts", "tests/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

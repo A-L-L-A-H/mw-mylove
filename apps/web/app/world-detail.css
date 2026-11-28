@@ -1,0 +1,576 @@
+.world-detail-page {
+  --world-accent: var(--portal-yellow);
+  max-width: 1440px;
+  padding-top: clamp(1.4rem, 3.5vw, 3.4rem);
+}
+.world-detail-page[data-accent="magenta"] {
+  --world-accent: var(--portal-magenta);
+}
+.world-detail-page[data-accent="cyan"] {
+  --world-accent: var(--portal-cyan);
+}
+.world-detail-page[data-accent="paper"] {
+  --world-accent: var(--mw-paper-cream);
+}
+
+.world-opening {
+  --world-accent: var(--portal-yellow);
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+  align-items: center;
+  min-height: 380px;
+  margin-bottom: clamp(2rem, 4vw, 3.5rem);
+  padding: clamp(1.2rem, 4vw, 3.5rem);
+  overflow: hidden;
+  border: 2px solid var(--world-accent);
+  background: var(--mw-night-raised);
+}
+
+.world-opening-copy {
+  position: relative;
+  z-index: 1;
+  max-width: 650px;
+}
+.world-index-mark {
+  display: inline-block;
+  margin: 0 0 1rem;
+  padding: 0.4rem 0.55rem;
+  background: var(--world-accent);
+  color: var(--mw-ink-black);
+  font:
+    900 0.75rem/1 var(--mw-font-display),
+    sans-serif;
+  letter-spacing: 0.12em;
+  transform: rotate(-2deg);
+}
+.world-opening h1 {
+  margin: 0;
+  color: var(--mw-paper-cream);
+  font:
+    900 clamp(2.7rem, 6.7vw, 6rem)/0.88 var(--mw-font-brush),
+    sans-serif;
+  overflow-wrap: anywhere;
+  text-transform: uppercase;
+}
+.world-opening-subtitle {
+  margin: 0.85rem 0;
+  color: var(--world-accent);
+  font:
+    800 clamp(1.2rem, 2.1vw, 1.8rem)/1 var(--mw-font-display),
+    sans-serif;
+}
+.world-opening-intro {
+  max-width: 38rem;
+  margin: 0;
+  color: var(--mw-paper-cream);
+  font-size: clamp(1rem, 1.4vw, 1.15rem);
+  line-height: 1.6;
+}
+
+.world-opening-art {
+  position: relative;
+  min-height: 300px;
+  margin: 0 0 0 1rem;
+  border: 4px solid var(--world-accent);
+  background: var(--mw-ink-black);
+  transform: rotate(1.4deg);
+}
+.world-opening-art img {
+  display: block;
+  width: 100%;
+  height: clamp(300px, 36vw, 500px);
+  object-fit: cover;
+}
+.world-opening-art figcaption {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  padding: 0.8rem 1rem;
+  background: color-mix(in srgb, var(--mw-ink-black) 88%, transparent);
+  color: var(--mw-paper-cream);
+  font:
+    italic 700 0.9rem/1.3 var(--mw-font-display),
+    sans-serif;
+}
+.world-opening-stamp {
+  position: absolute;
+  top: 0.5rem;
+  right: 1rem;
+  color: var(--world-accent);
+  font:
+    900 clamp(4rem, 13vw, 12rem)/0.8 var(--mw-font-display),
+    sans-serif;
+  opacity: 0.12;
+  pointer-events: none;
+}
+
+.world-opening--signal {
+  grid-template-columns: 0.8fr 1.2fr;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent 0 41px,
+      color-mix(in srgb, var(--world-accent) 8%, transparent) 42px 43px
+    ),
+    var(--mw-night-raised);
+}
+.world-opening--signal .world-opening-art {
+  transform: rotate(-1deg);
+}
+.world-opening--scriptorium {
+  grid-template-columns: 1.1fr 0.9fr;
+  background: var(--mw-paper-cream);
+}
+.world-opening--scriptorium h1,
+.world-opening--scriptorium .world-opening-intro {
+  color: var(--mw-ink-black);
+}
+.world-opening--scriptorium .world-opening-subtitle {
+  color: var(--mw-yellow-readable);
+}
+.world-opening--scriptorium .world-opening-art {
+  transform: rotate(-2deg);
+}
+.world-opening--constellation {
+  grid-template-columns: 1fr 1fr;
+  background:
+    radial-gradient(
+      circle at 72% 48%,
+      color-mix(in srgb, var(--world-accent) 20%, transparent),
+      transparent 32%
+    ),
+    var(--mw-night);
+}
+.world-opening--workshop {
+  grid-template-columns: 1fr 1fr;
+  clip-path: polygon(0 1%, 98% 0, 100% 96%, 3% 100%);
+}
+.world-opening--workshop .world-opening-art {
+  transform: rotate(2deg);
+}
+.world-opening--artwall {
+  grid-template-columns: 0.9fr 1.1fr;
+  border-width: 5px;
+}
+.world-opening--artwall .world-opening-art {
+  transform: rotate(-2.5deg);
+}
+.world-opening--archive-board {
+  grid-template-columns: 1fr 1fr;
+  background:
+    repeating-linear-gradient(
+      133deg,
+      transparent 0 86px,
+      color-mix(in srgb, var(--world-accent) 10%, transparent) 87px 89px
+    ),
+    var(--mw-night-raised);
+}
+.world-opening--archive-board .world-opening-copy {
+  transform: rotate(-1deg);
+}
+.world-opening--mythic-map {
+  grid-template-columns: 1fr 1fr;
+  background:
+    radial-gradient(
+      ellipse at 86% 28%,
+      color-mix(in srgb, var(--world-accent) 19%, transparent),
+      transparent 42%
+    ),
+    var(--mw-night);
+}
+.world-opening--mythic-map .world-opening-art {
+  clip-path: polygon(3% 0, 100% 5%, 96% 100%, 0 95%);
+}
+.world-opening--civic-editorial {
+  grid-template-columns: 1.15fr 0.85fr;
+  border-left-width: 12px;
+}
+.world-opening--civic-editorial .world-opening-art {
+  transform: rotate(1deg);
+}
+
+.world-content {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 1rem;
+}
+.world-fragment {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.7rem;
+  min-height: 150px;
+  padding: 1.2rem;
+  border-top: 4px solid var(--world-accent);
+  background: var(--mw-night-raised);
+}
+.world-fragment:nth-child(3n + 2) {
+  transform: translateY(1rem);
+}
+.fragment-index {
+  color: var(--world-accent);
+  font:
+    italic 900 1.3rem/1 var(--mw-font-display),
+    sans-serif;
+}
+.world-fragment h2 {
+  margin: 0 0 0.55rem;
+  color: var(--mw-paper-cream);
+  font:
+    800 clamp(1.1rem, 1.8vw, 1.5rem)/1 var(--mw-font-brush),
+    sans-serif;
+}
+.world-fragment p {
+  max-width: 38rem;
+  margin: 0;
+  color: var(--mw-paper-muted);
+  line-height: 1.5;
+}
+.fragment-mark {
+  position: absolute;
+  right: 0.75rem;
+  bottom: 0.4rem;
+  color: var(--world-accent);
+  font-size: 1.2rem;
+}
+
+.sidra-knowledge-map {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  align-items: center;
+  gap: 0.8rem;
+  min-height: 150px;
+  margin: 0 0 2.4rem;
+  padding: 0.75rem 0;
+}
+.sidra-knowledge-map > svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.sidra-knowledge-map > svg path {
+  fill: none;
+  stroke: var(--world-accent);
+  stroke-width: 2;
+  stroke-dasharray: 7 7;
+  opacity: 0.8;
+}
+.sidra-knowledge-map a {
+  position: relative;
+  display: grid;
+  align-content: center;
+  gap: 0.35rem;
+  min-height: 76px;
+  padding: 0.7rem;
+  border: 2px solid var(--world-accent);
+  background: var(--mw-ink-black);
+  color: var(--mw-paper-cream);
+  text-decoration: none;
+}
+.sidra-knowledge-map a:nth-of-type(even) {
+  transform: translateY(0.8rem);
+}
+.sidra-knowledge-map a span {
+  color: var(--world-accent);
+  font:
+    900 0.7rem/1 var(--mw-font-display),
+    sans-serif;
+}
+.sidra-knowledge-map a strong {
+  font:
+    800 0.9rem/1.1 var(--mw-font-display),
+    sans-serif;
+}
+.sidra-knowledge-map a:hover {
+  background: color-mix(in srgb, var(--world-accent) 16%, var(--mw-ink-black));
+}
+.sidra-knowledge-map a:focus-visible {
+  outline: 3px solid var(--mw-paper-cream);
+  outline-offset: 3px;
+}
+.world-fragment[id] {
+  scroll-margin-top: 2rem;
+}
+
+.world-content--documentary {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+.world-content--documentary .world-fragment {
+  grid-column: span 2;
+  border-top: 0;
+  border-left: 4px solid var(--world-accent);
+}
+.world-content--documentary .world-fragment:first-child,
+.world-content--documentary .world-fragment:nth-child(4) {
+  grid-column: span 3;
+  background: color-mix(
+    in srgb,
+    var(--world-accent) 9%,
+    var(--mw-night-raised)
+  );
+}
+.world-content--signal {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0;
+}
+.world-content--signal .world-fragment {
+  min-height: 210px;
+  border-top: 0;
+  border-bottom: 2px dashed var(--world-accent);
+}
+.world-content--signal .world-fragment + .world-fragment {
+  border-left: 1px solid var(--mw-night-outline);
+}
+.world-content--scriptorium {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.world-content--scriptorium .world-fragment {
+  min-height: 190px;
+  border-top-color: var(--world-accent);
+  background: var(--mw-paper-cream);
+  transform: rotate(-0.7deg);
+}
+.world-content--scriptorium .world-fragment:nth-child(even) {
+  transform: rotate(0.8deg) translateY(0.8rem);
+}
+.world-content--scriptorium .world-fragment h2 {
+  color: var(--mw-ink-black);
+}
+.world-content--scriptorium .world-fragment p {
+  color: #272727;
+}
+.world-content--constellation {
+  position: relative;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+.world-content--constellation .world-fragment {
+  min-height: 185px;
+  border: 1px solid
+    color-mix(in srgb, var(--world-accent) 58%, var(--mw-night-outline));
+  background: color-mix(in srgb, var(--world-accent) 7%, var(--mw-night));
+}
+.world-content--constellation .world-fragment:nth-child(even) {
+  transform: translateY(1.2rem);
+}
+.world-content--workshop {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+.world-content--workshop .world-fragment {
+  grid-column: span 2;
+  min-height: 170px;
+  border: 2px solid var(--world-accent);
+  clip-path: polygon(0 0, 100% 2%, 97% 100%, 2% 96%);
+}
+.world-content--workshop .world-fragment:nth-child(2),
+.world-content--workshop .world-fragment:nth-child(5) {
+  grid-column: span 4;
+  background: color-mix(
+    in srgb,
+    var(--world-accent) 12%,
+    var(--mw-night-raised)
+  );
+}
+.world-content--artwall {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.world-content--artwall .world-fragment {
+  min-height: 220px;
+  border: 2px solid var(--world-accent);
+  transform: rotate(-1deg);
+}
+.world-content--artwall .world-fragment:nth-child(3n) {
+  transform: rotate(1.5deg) translateY(0.7rem);
+}
+.world-content--archive-board {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+.world-content--archive-board .world-fragment {
+  grid-column: span 2;
+  min-height: 185px;
+  border: 1px dashed var(--world-accent);
+  transform: rotate(-0.6deg);
+}
+.world-content--archive-board .world-fragment:nth-child(3n + 2) {
+  transform: rotate(1deg) translateY(0.55rem);
+}
+.world-content--mythic-map {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.world-content--mythic-map .world-fragment {
+  min-height: 200px;
+  border: 0;
+  border-top: 1px solid var(--world-accent);
+  background: transparent;
+}
+.world-content--mythic-map .world-fragment:nth-child(even) {
+  margin-top: 2.1rem;
+}
+.world-content--civic-editorial {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+.world-content--civic-editorial .world-fragment {
+  grid-column: span 1;
+  min-height: 230px;
+  border-top: 8px solid var(--world-accent);
+}
+.world-content--civic-editorial .world-fragment:first-child {
+  grid-column: span 2;
+  background: color-mix(
+    in srgb,
+    var(--world-accent) 9%,
+    var(--mw-night-raised)
+  );
+}
+
+.world-neighbor-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 3.4rem;
+  padding-top: 1rem;
+  border-top: 2px solid var(--mw-night-outline);
+}
+.world-neighbor-nav a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 44px;
+  color: var(--world-accent);
+  font-weight: 800;
+  text-underline-offset: 0.25em;
+}
+.world-neighbor-nav > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 1.2rem;
+}
+.world-neighbor-nav .world-neighbor-map {
+  color: var(--mw-paper-cream);
+}
+
+@media (max-width: 1040px) {
+  .sidra-knowledge-map {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .world-content--signal {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+  .world-content--constellation {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .world-content--artwall {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .world-content--civic-editorial {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .world-content--civic-editorial .world-fragment:first-child {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 720px) {
+  .world-opening,
+  .world-opening--signal,
+  .world-opening--scriptorium,
+  .world-opening--constellation,
+  .world-opening--workshop,
+  .world-opening--artwall,
+  .world-opening--archive-board,
+  .world-opening--mythic-map,
+  .world-opening--civic-editorial {
+    grid-template-columns: 1fr;
+    gap: 1.2rem;
+    padding: 1rem;
+    clip-path: none;
+  }
+  .world-opening-art {
+    margin: 0.35rem 0 0;
+  }
+  .sidra-knowledge-map {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+    min-height: 0;
+    margin-bottom: 1.5rem;
+  }
+  .sidra-knowledge-map > svg {
+    display: none;
+  }
+  .sidra-knowledge-map a,
+  .sidra-knowledge-map a:nth-of-type(even) {
+    min-height: 54px;
+    transform: none;
+  }
+  .world-opening-art img {
+    height: clamp(250px, 70vw, 390px);
+  }
+  .world-opening--scriptorium h1,
+  .world-opening--scriptorium .world-opening-intro {
+    color: var(--mw-ink-black);
+  }
+  .world-content,
+  .world-content--documentary,
+  .world-content--signal,
+  .world-content--scriptorium,
+  .world-content--constellation,
+  .world-content--workshop,
+  .world-content--artwall,
+  .world-content--archive-board,
+  .world-content--mythic-map,
+  .world-content--civic-editorial {
+    grid-template-columns: 1fr;
+    gap: 0.8rem;
+  }
+  .world-content--documentary .world-fragment,
+  .world-content--documentary .world-fragment:first-child,
+  .world-content--documentary .world-fragment:nth-child(4),
+  .world-content--workshop .world-fragment,
+  .world-content--workshop .world-fragment:nth-child(2),
+  .world-content--workshop .world-fragment:nth-child(5),
+  .world-content--archive-board .world-fragment,
+  .world-content--civic-editorial .world-fragment,
+  .world-content--civic-editorial .world-fragment:first-child {
+    grid-column: auto;
+  }
+  .world-fragment,
+  .world-content--signal .world-fragment,
+  .world-content--artwall .world-fragment,
+  .world-content--archive-board .world-fragment,
+  .world-content--mythic-map .world-fragment {
+    min-height: 0;
+    transform: none;
+  }
+  .world-content--scriptorium .world-fragment {
+    min-height: 150px;
+    transform: none;
+  }
+  .world-content--mythic-map .world-fragment:nth-child(even) {
+    margin-top: 0;
+  }
+  .world-neighbor-nav {
+    align-items: flex-start;
+    flex-direction: column;
+    margin-top: 2rem;
+  }
+  .world-neighbor-nav > div {
+    justify-content: space-between;
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .world-opening-art,
+  .world-fragment {
+    transition: none;
+  }
+}

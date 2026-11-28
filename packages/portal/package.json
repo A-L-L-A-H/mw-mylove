@@ -1,0 +1,32 @@
+{
+  "name": "@mw/portal",
+  "version": "1.0.0",
+  "description": "Portal domain constants, compliance policy, HTML rendering, and runtime config for A-L-L-A-H.COM",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@mw/auth": "workspace:*",
+    "@mw/seo": "workspace:*",
+    "@mw/sla": "workspace:*",
+    "@mw/storefront": "workspace:*"
+  },
+  "devDependencies": {
+    "@mw/tsconfig": "workspace:*",
+    "@types/bun": "latest",
+    "typescript": "^5.8.2"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

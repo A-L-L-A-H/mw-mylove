@@ -1,0 +1,35 @@
+{
+  "name": "@mw/api",
+  "version": "1.0.0",
+  "description": "Fastify API service for the MoonWitness ecosystem",
+  "type": "module",
+  "main": "./src/server.ts",
+  "types": "./src/server.ts",
+  "exports": {
+    ".": "./src/server.ts",
+    "./config": "./src/config.ts"
+  },
+  "scripts": {
+    "dev": "bun run src/server.ts",
+    "build": "tsc --noEmit",
+    "start": "bun run src/server.ts",
+    "test": "bun test --pass-with-no-tests",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@mw/auth": "workspace:*",
+    "@mw/portal": "workspace:*",
+    "@mw/seo": "workspace:*",
+    "@mw/sla": "workspace:*",
+    "@mw/storefront": "workspace:*",
+    "fastify": "^5.12.8"
+  },
+  "devDependencies": {
+    "@mw/tsconfig": "workspace:*",
+    "@types/bun": "latest",
+    "typescript": "^5.8.2"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

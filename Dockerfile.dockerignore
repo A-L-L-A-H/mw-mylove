@@ -1,0 +1,8 @@
+apps/
+packages/
+node_modules/
+.next/
+dist/
+*.log
+*.tsbuildinfo
+.plan/

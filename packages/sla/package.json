@@ -1,0 +1,24 @@
+{
+  "name": "@mw/sla",
+  "version": "1.0.0",
+  "description": "MoonWitness SLA and Sharia Mizan transparency widget",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@mw/storefront": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.8.2"
+  },
+  "peerDependencies": {
+    "typescript": "^5.8.2"
+  }
+}
