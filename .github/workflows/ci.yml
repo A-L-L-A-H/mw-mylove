@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   commitlint:
-    name: Commitlint
+    name: commitlint
     runs-on: ubuntu-24.04
     if: github.event_name == 'pull_request'
     steps:
@@ -34,7 +34,7 @@ jobs:
         run: npx commitlint --from=origin/main --to=HEAD --config commitlint.ci.config.cjs
 
   verify:
-    name: Verify
+    name: verify
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
