@@ -48,15 +48,15 @@ jobs:
           ref: fb3b75cbb64d8a4ef3d148bd1133d48e083a8950
           path: mw-design
           persist-credentials: false
+      - name: Set up Bun for shared UI build
+        uses: oven-sh/setup-bun@v2.2.0
+        with:
+          bun-version: 1.4.5
       - name: Build shared UI package
         run: |
           bun install --frozen-lockfile
           bun run build --workspace=@moonwitness/ui
         working-directory: mw-design
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@v2.2.0
-        with:
-          bun-version: 1.4.5
       - name: Install dependencies
         run: bun install --frozen-lockfile
         working-directory: mw-mylove
